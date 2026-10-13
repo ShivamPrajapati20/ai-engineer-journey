@@ -1,11 +1,16 @@
-"""Day 05 - LLMClient with a custom error and retries.
+"""Day 05 - LLMClient with a custom error, retries, and type hints.
 
 The model call is a stub (fake) for now. A real API call replaces it later.
-Run:  python client.py
+Run:         python client.py
+Type-check:  mypy labs/d05-python
 """
 
 import random
 import time
+from typing import Literal
+
+# Only these model names are allowed. A typo like "claud" is caught by mypy.
+ModelName = Literal["fake-model", "claude", "gpt"]
 
 
 class LLMError(Exception):
@@ -13,12 +18,17 @@ class LLMError(Exception):
 
 
 class LLMClient:
-    def __init__(self, model="fake-model", max_retries=3, fail_rate=0.5):
+    def __init__(
+        self,
+        model: ModelName = "fake-model",
+        max_retries: int = 3,
+        fail_rate: float = 0.5,
+    ) -> None:
         self.model = model              # which model to call
         self.max_retries = max_retries  # how many tries before giving up
         self.fail_rate = fail_rate      # stub only: 0 = never fails, 1 = always fails
 
-    def complete(self, prompt):
+    def complete(self, prompt: str) -> str:
         """Send a prompt, retrying on temporary errors. Returns the answer text."""
         for attempt in range(1, self.max_retries + 1):
             try:
@@ -29,7 +39,7 @@ class LLMClient:
                     time.sleep(0.1 * 2 ** attempt)              # wait longer each time
         raise LLMError(f"gave up after {self.max_retries} attempts")
 
-    def _call_model(self, prompt):
+    def _call_model(self, prompt: str) -> str:
         """STUB: pretends to be a model API that sometimes times out."""
         if random.random() < self.fail_rate:
             raise TimeoutError("model timed out")
