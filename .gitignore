@@ -1,0 +1,8 @@
+# data files: download them, don't commit them
+labs/*/data/
+
+# Python / tool caches
+__pycache__/
+.mypy_cache/
+.venv/
+.env

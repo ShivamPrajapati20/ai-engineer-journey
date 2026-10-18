@@ -43,3 +43,5 @@ docs/architecture/   Mermaid diagrams: current-state, target-state, p5-graph, se
 - **Day 01:** Mapped the book's 10 chapters to topics → [`notes/d01-map.md`](notes/d01-map.md)
 - **Day 03:** Scale concepts for LLM endpoints (performance vs scalability, latency vs throughput, CAP, caching, queues) → [`notes/d03-scale.md`](notes/d03-scale.md)
 - **Day 04:** Created this repo
+- **Day 05:** `LLMClient` with custom error, retries, type hints (mypy --strict clean) and structured JSON logging → [`labs/d05-python/client.py`](labs/d05-python/client.py)
+- **Day 07:** Pandas EDA on Telco churn — cleaned `TotalCharges`, churn by segment, hypothesis → [`notes/d07-eda.md`](notes/d07-eda.md)
