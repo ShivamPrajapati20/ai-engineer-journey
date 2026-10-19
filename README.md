@@ -40,6 +40,8 @@ docs/architecture/   Mermaid diagrams: current-state, target-state, p5-graph, se
 
 ## Log
 
+> 📚 **Revision notes:** every concept, function and trap so far → [`notes/revision.md`](notes/revision.md)
+
 - **Day 01:** Mapped the book's 10 chapters to topics → [`notes/d01-map.md`](notes/d01-map.md)
 - **Day 03:** Scale concepts for LLM endpoints (performance vs scalability, latency vs throughput, CAP, caching, queues) → [`notes/d03-scale.md`](notes/d03-scale.md)
 - **Day 04:** Created this repo
