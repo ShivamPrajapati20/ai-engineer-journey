@@ -29,6 +29,8 @@ One file to review everything learned so far. Updated after every task.
 | 07 | `groupby` = split → summarize → combine (SQL `GROUP BY`). For a rate, average a 1/0 column and **always show the count**. |
 | 07 | Commit **code and conclusions**, not data. |
 | 08 | A **Pydantic model is an enforced contract**: bad input is rejected before it reaches your code or costs money. |
+| 08 | `Field` limits for simple rules (`min_length`, `ge`, `le`); `@field_validator` for custom ones — and always **`return` the value**. |
+| 08 | One `try` per test case; catch **`pydantic.ValidationError`**, and check imports your editor adds. |
 
 ---
 
@@ -251,6 +253,38 @@ request.model_dump_json()         # model → JSON string
 - Call schema on the **class**: `ChatRequest.model_json_schema()`.
 - **Trap:** never name a file `pydantic.py` (or `numpy.py`, `json.py`) — it hides the real library.
 
+### Task 2 — Validation that rejects bad input before it costs money
+```python
+from pydantic import BaseModel, Field, ValidationError, field_validator
+
+class ChatRequest(BaseModel):
+    prompt: str = Field(min_length=1, max_length=8000)
+    max_tokens: int = Field(default=512, ge=1, le=4096)      # default goes INSIDE Field
+    temperature: float = Field(default=0.7, ge=0.0, le=2.0)
+
+    @field_validator("prompt")
+    @classmethod                       # required; first param is cls, not self
+    def strip_and_check(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("prompt must not be empty or only spaces")
+        return v                       # what you return is what gets stored
+```
+| Word | Meaning | For |
+|---|---|---|
+| `min_length` / `max_length` | shortest / longest text | strings |
+| `ge` / `le` | ≥ / ≤ (greater/less than or equal) | numbers |
+| `gt` / `lt` | > / < (strict) | numbers |
+
+- Task 1 checks the **type**; Task 2 checks the **value** (bouncer with a checklist).
+- Why it matters: long prompts, huge `max_tokens`, invalid `temperature`, blank prompts all **cost money** or fail at the model — reject them free, at the door.
+- `"     "` passes `min_length=1` (5 chars) → only the **validator** (strip first) catches it. That's why you need both.
+- Limits show up in the JSON schema as `minimum` / `maximum` / `maxLength` → visible in `/docs`.
+- `ValidationError` in Python **=** HTTP **422** once the model is used in a FastAPI endpoint; your endpoint code never runs.
+- `ChatRequest(**data)` unpacks a dict into named arguments (`**{"prompt": "hi"}` = `prompt="hi"`).
+- `e.errors()` → list of `{"loc": ("prompt",), "msg": "..."}` — use it to print *which field* and *why*.
+- Error messages should say exactly what to fix (not "not proper value").
+
 ---
 
 ## Traps to avoid (several I actually hit)
@@ -262,3 +296,6 @@ request.model_dump_json()         # model → JSON string
 - Trusted `isna() = 0` → `TotalCharges` had 11 hidden blanks.
 - Printed only one schema when the task asked for both → read the "Done when" line twice.
 - Practice code saved in `notes/` → code belongs in `labs/`.
+- Editor auto-imported `from xml.dom import ValidationErr` → `except` never caught Pydantic's error. Use `from pydantic import ValidationError`.
+- Put 4 tests in one `try` → first failure skipped the other 3. One `try` per test.
+- `except ...: raise Exception` → threw away the useful message. Print `e.errors()` instead.
