@@ -31,6 +31,8 @@ One file to review everything learned so far. Updated after every task.
 | 08 | A **Pydantic model is an enforced contract**: bad input is rejected before it reaches your code or costs money. |
 | 08 | `Field` limits for simple rules (`min_length`, `ge`, `le`); `@field_validator` for custom ones — and always **`return` the value**. |
 | 08 | One `try` per test case; catch **`pydantic.ValidationError`**, and check imports your editor adds. |
+| 08 | Model as parameter type → FastAPI validates **input** (bad = 422, client's fault). `response_model` → validates **output** (broken = 500, your fault). |
+| 08 | Run tools with **`python -m ...`** (`python -m pip`, `python -m fastapi dev`) so they use the Python you actually have. |
 
 ---
 
@@ -285,6 +287,38 @@ class ChatRequest(BaseModel):
 - `e.errors()` → list of `{"loc": ("prompt",), "msg": "..."}` — use it to print *which field* and *why*.
 - Error messages should say exactly what to fix (not "not proper value").
 
+### Task 3 — Wire it into a real endpoint (`POST /chat`)
+```python
+from fastapi import FastAPI
+from schemas import ChatRequest, ChatResponse
+
+app = FastAPI(title="LLM Chat Service")
+
+@app.post("/chat", response_model=ChatResponse)     # = @PostMapping("/chat")
+def chat(request: ChatRequest) -> ChatResponse:      # type hint = @RequestBody + @Valid
+    answer = f"(hardcoded) You said: {request.prompt}"   # stub — real model on Day 10
+    return ChatResponse(answer=answer, model="stub-model",
+                        input_tokens=..., output_tokens=..., latency_ms=...)
+```
+```
+Client ─JSON─▶ [check ChatRequest] ─▶ chat() ─▶ [check ChatResponse] ─JSON─▶ Client
+                 ❌ bad input → 422                  ❌ your bug → 500
+```
+- Restaurant: `ChatRequest` = order form checked by the waiter; your function = kitchen (only sees valid orders); `ChatResponse` = plate standard checked before it leaves.
+- Build the **pipe** first with a hardcoded answer (free), swap in the real model later — same idea as Day 5's stub.
+- `/docs` (Swagger UI) is generated from your models: **Schemas** shows `ChatRequest`, `ChatResponse`, plus `HTTPValidationError` (the 422 format). "Try it out" → Execute to test.
+- 422 error body: `{"detail": [{"loc": ["body", "prompt"], "msg": "String should have at most 8000 characters", ...}]}`.
+- Returning a dict that misses fields with `response_model` set → **500**; FastAPI won't send a broken response.
+- Run: `python -m fastapi dev main.py` → http://127.0.0.1:8000/docs. Auto-reloads on save; stop with Ctrl+C.
+  Alternative: `python -m uvicorn main:app --reload` (`main:app` = file `main.py`, variable `app`).
+- Call it from Python: `httpx.post("http://127.0.0.1:8000/chat", json={"prompt": "x" * 9000}).status_code` → 422.
+- Import trap: `from schemas import ...` needs the file to be named exactly **`schemas.py`**.
+
+**Fixing "Fatal error in launcher … C:\\Python310\\python.exe … cannot find the file"**
+- `fastapi.exe` / `pip.exe` are small launchers tied to the Python that installed them. Old Python removed → launcher is dead.
+- Fix: `python --version` → `python -m pip install "fastapi[standard]"` → `python -m fastapi dev main.py`.
+- Lasting fix: a **venv** per repo: `python -m venv .venv` → `.venv\\Scripts\\activate` → install inside it. Prompt shows `(.venv)`. Activate in each new terminal.
+
 ---
 
 ## Traps to avoid (several I actually hit)
@@ -299,3 +333,5 @@ class ChatRequest(BaseModel):
 - Editor auto-imported `from xml.dom import ValidationErr` → `except` never caught Pydantic's error. Use `from pydantic import ValidationError`.
 - Put 4 tests in one `try` → first failure skipped the other 3. One `try` per test.
 - `except ...: raise Exception` → threw away the useful message. Print `e.errors()` instead.
+- Named the file `schema.py` but imported `schemas` → keep file names exactly as the task says.
+- `fastapi dev` failed with "Fatal error in launcher" (old Python 3.10 launcher) → use `python -m fastapi dev main.py`.
