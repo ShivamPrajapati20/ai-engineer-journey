@@ -314,10 +314,10 @@ Client ─JSON─▶ [check ChatRequest] ─▶ chat() ─▶ [check ChatRespons
 - Call it from Python: `httpx.post("http://127.0.0.1:8000/chat", json={"prompt": "x" * 9000}).status_code` → 422.
 - Import trap: `from schemas import ...` needs the file to be named exactly **`schemas.py`**.
 
-**Fixing "Fatal error in launcher … C:\\Python310\\python.exe … cannot find the file"**
+**Fixing "Fatal error in launcher … C:\Python310\python.exe … cannot find the file"**
 - `fastapi.exe` / `pip.exe` are small launchers tied to the Python that installed them. Old Python removed → launcher is dead.
 - Fix: `python --version` → `python -m pip install "fastapi[standard]"` → `python -m fastapi dev main.py`.
-- Lasting fix: a **venv** per repo: `python -m venv .venv` → `.venv\\Scripts\\activate` → install inside it. Prompt shows `(.venv)`. Activate in each new terminal.
+- Lasting fix: a **venv** per repo: `python -m venv .venv` → `.venv\Scripts\activate` → install inside it. Prompt shows `(.venv)`. Activate in each new terminal.
 
 ---
 
