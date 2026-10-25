@@ -47,3 +47,4 @@ docs/architecture/   Mermaid diagrams: current-state, target-state, p5-graph, se
 - **Day 04:** Created this repo
 - **Day 05:** `LLMClient` with custom error, retries, type hints (mypy --strict clean) and structured JSON logging → [`labs/d05-python/client.py`](labs/d05-python/client.py)
 - **Day 07:** Pandas EDA on Telco churn — cleaned `TotalCharges`, churn by segment, hypothesis → [`notes/d07-eda.md`](notes/d07-eda.md)
+- **Day 08:** Project 1 started — FastAPI `POST /chat` + `GET /health`, Pydantic request/response contract with validation (bad input → 422), router-based structure → [`projects/p1-chat-api`](projects/p1-chat-api)

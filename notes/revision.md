@@ -32,6 +32,7 @@ One file to review everything learned so far. Updated after every task.
 | 08 | `Field` limits for simple rules (`min_length`, `ge`, `le`); `@field_validator` for custom ones — and always **`return` the value**. |
 | 08 | One `try` per test case; catch **`pydantic.ValidationError`**, and check imports your editor adds. |
 | 08 | Model as parameter type → FastAPI validates **input** (bad = 422, client's fault). `response_model` → validates **output** (broken = 500, your fault). |
+| 08 | **One job per file**: routers = departments (`APIRouter`), `main.py` = front door (`include_router`), config = one rule book, `/health` = "I'm alive". |
 | 08 | Run tools with **`python -m ...`** (`python -m pip`, `python -m fastapi dev`) so they use the Python you actually have. |
 
 ---
@@ -319,6 +320,48 @@ Client ─JSON─▶ [check ChatRequest] ─▶ chat() ─▶ [check ChatRespons
 - Fix: `python --version` → `python -m pip install "fastapi[standard]"` → `python -m fastapi dev main.py`.
 - Lasting fix: a **venv** per repo: `python -m venv .venv` → `.venv\Scripts\activate` → install inside it. Prompt shows `(.venv)`. Activate in each new terminal.
 
+### Task 4 — Structure the app so it survives Day 90
+```
+projects/p1-chat-api/app/
+├── __init__.py       # makes the folder a package (two underscores on EACH side!)
+├── main.py           # front door: FastAPI(), include_router, /health
+├── schemas.py        # the forms (DTOs)
+├── api/chat.py       # chat department: APIRouter with POST /chat
+└── core/config.py    # rule book: name, version, model (API key from .env on Day 10)
+```
+```python
+# app/api/chat.py
+router = APIRouter(tags=["chat"])                    # mini-app; tags = heading in /docs
+@router.post("/chat", response_model=ChatResponse)   # @router, not @app
+
+# app/main.py
+from app.api.chat import router as chat_router       # rename: every file calls it "router"
+app = FastAPI(title=settings.app_name, version=settings.version)
+app.include_router(chat_router)
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok", "version": settings.version}
+```
+| File | Job | Spring Boot |
+|---|---|---|
+| `main.py` | create app, plug in routers | `@SpringBootApplication` |
+| `api/chat.py` | one feature's endpoints | `@RestController` |
+| `schemas.py` | request/response shapes | DTOs |
+| `core/config.py` | settings in one place | `application.properties` |
+
+- New feature (RAG on Day 44) = **new router file + one `include_router` line**; existing files untouched.
+- **`/health`**: Docker / load balancers / cloud call it every few seconds and restart the service if it stops answering. `version` tells you which code is live.
+- Imports use the full path from the project root: `from app.schemas import ...` (not `from schemas import ...`).
+- Run from the folder **above** `app/`: `python -m fastapi dev app/main.py` → log shows `Using import string: app.main:app`.
+- `type nul > file` creates an empty file on Windows.
+
+| Error | Fix |
+|---|---|
+| `No module named 'app'` | run from `p1-chat-api/`, not inside `app/` |
+| `No module named 'schemas'` | `from app.schemas import ...` |
+| `/chat` → 404 | add `app.include_router(chat_router)` |
+
 ---
 
 ## Traps to avoid (several I actually hit)
@@ -335,3 +378,5 @@ Client ─JSON─▶ [check ChatRequest] ─▶ chat() ─▶ [check ChatRespons
 - `except ...: raise Exception` → threw away the useful message. Print `e.errors()` instead.
 - Named the file `schema.py` but imported `schemas` → keep file names exactly as the task says.
 - `fastapi dev` failed with "Fatal error in launcher" (old Python 3.10 launcher) → use `python -m fastapi dev main.py`.
+- Named package files `__init.py` → must be `__init__.py` (2 underscores each side). It still ran only because Python 3 allows folders without it.
+- Left unused imports and commented-out old code in `schemas.py` → delete it; Git keeps history.
