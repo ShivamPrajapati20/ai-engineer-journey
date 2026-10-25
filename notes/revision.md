@@ -34,6 +34,7 @@ One file to review everything learned so far. Updated after every task.
 | 08 | Model as parameter type → FastAPI validates **input** (bad = 422, client's fault). `response_model` → validates **output** (broken = 500, your fault). |
 | 08 | **One job per file**: routers = departments (`APIRouter`), `main.py` = front door (`include_router`), config = one rule book, `/health` = "I'm alive". |
 | 08 | Run tools with **`python -m ...`** (`python -m pip`, `python -m fastapi dev`) so they use the Python you actually have. |
+| 09 | **Async = don't stand idle while waiting.** `async def` + `await` pauses; `asyncio.gather` overlaps the waits → 10 waits ≈ time of 1. Only works with `await`-able calls. |
 
 ---
 
@@ -364,6 +365,36 @@ def health() -> dict[str, str]:
 
 ---
 
+## Day 09 — Async, JSON & calling an LLM API
+
+### Task 1 — Async in Python (`asyncio.gather`)
+| Word | Meaning | Tea analogy |
+|---|---|---|
+| `async def` | function that can pause while waiting | a task involving waiting (boiling) |
+| `await x` | pause here until `x` finishes; let other work run | "kettle's on, I'll come back" |
+| coroutine | what calling an `async def` returns — **not started yet** | filled kettle, not on the stove |
+| `asyncio.run(main())` | start the event loop, run to the end (once, at the top) | you in the kitchen |
+| `asyncio.gather(a, b, c)` | run many at once; results **in original order** | all kettles on at once |
+
+```python
+async def call(client: httpx.AsyncClient, i: int) -> int:
+    response = await client.get(URL)          # awaitable network call
+    return response.status_code
+
+async def concurrent() -> list[int]:
+    async with httpx.AsyncClient(timeout=30) as client:   # ONE shared client, auto-closed
+        return await asyncio.gather(*(call(client, i) for i in range(10)))
+```
+- Helps with **I/O** (network, DB, files) — most of an LLM call is waiting. Doesn't help **CPU** work (NumPy math).
+- Total time ≈ **slowest single call**, not the sum. Measured: 10.16 s → 1.05 s = **9.7×** (local); httpbin over internet ≈ 6–9×.
+- `*(...)` unpacks a list into separate arguments (like `**data` for dicts).
+- `await` inside a `for` loop = sequential; `async` alone doesn't make anything faster.
+- Java: `gather` ≈ `CompletableFuture.allOf(...)`, but one thread, no pool.
+- Always set a `timeout` on network calls. Reuse **one** client (`async with`) — a new client per call redoes the HTTPS handshake every time.
+- f-string formatting: `f"{seconds:.2f} s"` = 2 decimal places.
+
+---
+
 ## Traps to avoid (several I actually hit)
 
 - Type hint inside a function **call**: `f(prompt: str)` → syntax error.
@@ -380,3 +411,8 @@ def health() -> dict[str, str]:
 - `fastapi dev` failed with "Fatal error in launcher" (old Python 3.10 launcher) → use `python -m fastapi dev main.py`.
 - Named package files `__init.py` → must be `__init__.py` (2 underscores each side). It still ran only because Python 3 allows folders without it.
 - Left unused imports and commented-out old code in `schemas.py` → delete it; Git keeps history.
+- Called an `async def` function without `await` → just a coroutine object ("never awaited" warning); nothing ran.
+- `time.sleep()` inside `async def` freezes the whole event loop → `gather` gave 3 s instead of 1 s. Use `await asyncio.sleep()` / async clients.
+- Opened a new `httpx.AsyncClient` inside the loop → unfair, slower sequential timing. One client, opened once.
+- Forgot `return results` → function returned `None` despite `-> list[int]`.
+- Defined the same function name twice → the second silently replaces the first.
