@@ -35,6 +35,7 @@ One file to review everything learned so far. Updated after every task.
 | 08 | **One job per file**: routers = departments (`APIRouter`), `main.py` = front door (`include_router`), config = one rule book, `/health` = "I'm alive". |
 | 08 | Run tools with **`python -m ...`** (`python -m pip`, `python -m fastapi dev`) so they use the Python you actually have. |
 | 09 | **Async = don't stand idle while waiting.** `async def` + `await` pauses; `asyncio.gather` overlaps the waits → 10 waits ≈ time of 1. Only works with `await`-able calls. |
+| 09 | `async def` is a **promise to `await`** while waiting. Blocking call (sync SDK, `requests`, `time.sleep`)? → plain **`def`** (threadpool). Breaking the promise freezes the **whole server**. |
 
 ---
 
@@ -393,6 +394,21 @@ async def concurrent() -> list[int]:
 - Always set a `timeout` on network calls. Reuse **one** client (`async with`) — a new client per call redoes the HTTPS handshake every time.
 - f-string formatting: `f"{seconds:.2f} s"` = 2 decimal places.
 
+### Task 2 — Async in FastAPI: when `def` beats `async def`
+| You write | FastAPI does | Result |
+|---|---|---|
+| `async def` + `await` I/O | runs on the event loop; waits overlap | ✅ fast |
+| plain `def` + blocking call | runs it in a **threadpool** (back-room helper) | ✅ fast |
+| `async def` + **blocking** call | runs on the event loop, which **freezes** | ❌ every request waits, even `/health` |
+
+- Event loop = **one** very fast waiter. `async def` tells FastAPI "trust me, I'll `await`" — FastAPI believes you.
+- **Blocking** (no `await`): `time.sleep`, `requests.get`, sync SDKs (`Anthropic()`, `OpenAI()`), sync DB drivers.
+- **Awaitable**: `await asyncio.sleep`, `await httpx.AsyncClient().get`, `await AsyncAnthropic().messages.create`.
+- Measured (5 requests at once, each waits 1 s): `/good-async` 1.04 s · `/good-sync` 1.04 s · `/bad` **5.01 s** · `/health` during `/bad` **4.91 s**.
+- Pair the client with the endpoint: `Anthropic()` → `def`; `AsyncAnthropic()` → `async def` + `await`.
+- **When in doubt, plain `def`** — never catastrophic; blocking inside `async def` is.
+- Run server + load test: terminal 1 `python -m uvicorn demo:app`, terminal 2 `python hammer.py`.
+
 ---
 
 ## Traps to avoid (several I actually hit)
@@ -416,3 +432,4 @@ async def concurrent() -> list[int]:
 - Opened a new `httpx.AsyncClient` inside the loop → unfair, slower sequential timing. One client, opened once.
 - Forgot `return results` → function returned `None` despite `-> list[int]`.
 - Defined the same function name twice → the second silently replaces the first.
+- Sync SDK client (or any blocking call) inside `async def` → freezes the whole server. Use plain `def`, or the async client + `await`.
