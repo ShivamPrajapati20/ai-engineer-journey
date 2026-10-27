@@ -36,6 +36,8 @@ One file to review everything learned so far. Updated after every task.
 | 08 | Run tools with **`python -m ...`** (`python -m pip`, `python -m fastapi dev`) so they use the Python you actually have. |
 | 09 | **Async = don't stand idle while waiting.** `async def` + `await` pauses; `asyncio.gather` overlaps the waits → 10 waits ≈ time of 1. Only works with `await`-able calls. |
 | 09 | `async def` is a **promise to `await`** while waiting. Blocking call (sync SDK, `requests`, `time.sleep`)? → plain **`def`** (threadpool). Breaking the promise freezes the **whole server**. |
+| 09 | Secrets in **`.env`** (never Git, never chat), prompt in a **file** (versioned), blocking SDK client in a plain **`def`**, created **once**. Real token counts come from `message.usage`. |
+| 09 | **Check current docs** — APIs change: current Claude models reject `temperature` with a 400. |
 
 ---
 
@@ -409,6 +411,65 @@ async def concurrent() -> list[int]:
 - **When in doubt, plain `def`** — never catastrophic; blocking inside `async def` is.
 - Run server + load test: terminal 1 `python -m uvicorn demo:app`, terminal 2 `python hammer.py`.
 
+### Task 3 — First real model call (Claude)
+```
+Client → /chat → Pydantic checks input → Claude API → answer + usage → ChatResponse → Client
+```
+| Piece | Meaning |
+|---|---|
+| API key | password + credit card for the model — anyone with it spends your money |
+| `.env` | private file for secrets; in `.gitignore`; never committed or pasted |
+| `.env.example` | committed copy with placeholder values — shows what's needed |
+| system prompt | job description given to the model before every conversation |
+
+```python
+# app/core/config.py
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+class Settings(BaseSettings):                       # like BaseModel, but fills from .env / env vars
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_name: str = "claude-haiku-5-5"
+    anthropic_api_key: str                          # no default → app refuses to start without it
+    system_prompt_path: str = "prompts/system_v1.txt"
+
+settings = Settings()  # type: ignore[call-arg]
+```
+```python
+# app/api/chat.py
+client = Anthropic(api_key=settings.anthropic_api_key)        # ONCE, reused
+SYSTEM_PROMPT = Path(settings.system_prompt_path).read_text(encoding="utf-8")   # read once
+
+@router.post("/chat", response_model=ChatResponse)
+def chat(request: ChatRequest) -> ChatResponse:              # plain def: blocking client (Task 2)
+    message = client.messages.create(
+        model=settings.model_name,
+        max_tokens=request.max_tokens,                       # capped at 4096 by validation = cost cap
+        system=SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": request.prompt}],
+    )
+    answer = "".join(b.text for b in message.content if b.type == "text")   # content = LIST of blocks
+    # message.usage.input_tokens / output_tokens = real billed counts; message.model = exact model
+```
+- `ANTHROPIC_API_KEY` in `.env` → `anthropic_api_key` (case-insensitive match).
+- Missing key → `Field required` at startup = **fail fast** (better than failing on the first user).
+- **Be clear and direct:** write the system prompt like instructions to a smart new employee — who/where, format (answer first), measurable length (< 150 words, also controls cost), "say if unsure".
+- Prompt lives in `prompts/system_v1.txt`, not in code → version it, compare v1 vs v2 later.
+- `input_tokens` includes the **system prompt**, so even "hi" costs ~100 input tokens.
+- Real `latency_ms` is now ~500–2000 ms (network + generation), not 0.
+- Invalid input (e.g. `temperature: 3`) is still 422 → **no model call, no cost**.
+- **`temperature`, `top_p`, `top_k` → 400 error on current Claude models.** Kept `temperature` in `ChatRequest` (other providers use it) but don't send it to Claude.
+- Only `chat.py`, `config.py` and the prompt file changed — `schemas.py` and `main.py` untouched (Day 8 structure paying off).
+
+| Error | Fix |
+|---|---|
+| `anthropic_api_key Field required` | `.env` must be in `p1-chat-api/` (where you run the command) |
+| `401 authentication_error` | wrong key → create a new one, check for spaces |
+| `400 … credit balance` | add billing credit |
+| `400 … temperature` | remove `temperature` from the call |
+| `FileNotFoundError: prompts/system_v1.txt` | run from `p1-chat-api/` |
+
+**Key leaked?** Delete it in the console immediately and create a new one.
+
 ---
 
 ## Traps to avoid (several I actually hit)
@@ -433,3 +494,5 @@ async def concurrent() -> list[int]:
 - Forgot `return results` → function returned `None` despite `-> list[int]`.
 - Defined the same function name twice → the second silently replaces the first.
 - Sync SDK client (or any blocking call) inside `async def` → freezes the whole server. Use plain `def`, or the async client + `await`.
+- Followed the plan blindly on `temperature` → current Claude models reject it (400). Always check current docs.
+- `.env` showing in `git status` = stop, don't commit. Secrets never go in Git, code, screenshots or chat.
