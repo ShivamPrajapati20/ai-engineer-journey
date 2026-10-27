@@ -48,3 +48,4 @@ docs/architecture/   Mermaid diagrams: current-state, target-state, p5-graph, se
 - **Day 05:** `LLMClient` with custom error, retries, type hints (mypy --strict clean) and structured JSON logging → [`labs/d05-python/client.py`](labs/d05-python/client.py)
 - **Day 07:** Pandas EDA on Telco churn — cleaned `TotalCharges`, churn by segment, hypothesis → [`notes/d07-eda.md`](notes/d07-eda.md)
 - **Day 08:** Project 1 started — FastAPI `POST /chat` + `GET /health`, Pydantic request/response contract with validation (bad input → 422), router-based structure → [`projects/p1-chat-api`](projects/p1-chat-api)
+- **Day 09:** Async (`gather` ~10× faster), `async def` vs `def` in FastAPI, first real Claude call with `.env` secrets and a versioned system prompt, SSE streaming (`POST /chat/stream`) → [`notes/d09-async.md`](notes/d09-async.md) · [`labs/d09-async`](labs/d09-async)

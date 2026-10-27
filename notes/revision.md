@@ -38,6 +38,7 @@ One file to review everything learned so far. Updated after every task.
 | 09 | `async def` is a **promise to `await`** while waiting. Blocking call (sync SDK, `requests`, `time.sleep`)? → plain **`def`** (threadpool). Breaking the promise freezes the **whole server**. |
 | 09 | Secrets in **`.env`** (never Git, never chat), prompt in a **file** (versioned), blocking SDK client in a plain **`def`**, created **once**. Real token counts come from `message.usage`. |
 | 09 | **Check current docs** — APIs change: current Claude models reject `temperature` with a 400. |
+| 09 | **Streaming doesn't make the model faster — it shows the answer as it's written** (time to first token). SSE = `event:` + `data:` + blank line; a generator `yield`s each piece. |
 
 ---
 
@@ -470,6 +471,29 @@ def chat(request: ChatRequest) -> ChatResponse:              # plain def: blocki
 
 **Key leaked?** Delete it in the console immediately and create a new one.
 
+### Task 4 — Stream tokens to the client (SSE)
+```python
+def sse(event: str, data: dict[str, object]) -> str:
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"     # blank line ends each message
+
+@router.post("/chat/stream")
+def chat_stream(request: ChatRequest) -> StreamingResponse:    # plain def: blocking client (Task 2)
+    def event_generator() -> Iterator[str]:                    # generator: yields many times
+        with client.messages.stream(model=..., max_tokens=..., system=..., messages=[...]) as stream:
+            for text in stream.text_stream:                     # pieces as they're generated
+                yield sse("token", {"text": text})
+            final = stream.get_final_message()                  # usage only exists at the END
+        yield sse("done", {"input_tokens": final.usage.input_tokens, ...})
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+```
+- Without streaming: nothing for 3–5 s, then the whole answer. With streaming: first words in < 1 s. Same total time — live commentary vs next-day match report.
+- **Generator**: `return` gives one value; `yield` hands out many, pausing between them. `StreamingResponse` sends each yielded piece immediately.
+- SSE message = `event: token` line + `data: {...}` line + **blank line**. Final `done` event carries model, token usage, latency.
+- `with client.messages.stream(...)` closes the Claude connection automatically, even if the user disconnects.
+- Bad input still → 422 before anything streams (no cost).
+- Test: `curl.exe -N -X POST ... -d '{\"prompt\": \"...\"}'` — `-N` = no buffering; in PowerShell use **`curl.exe`**, not `curl`. Or a Python client with `httpx.stream("POST", url, json=...)` + `response.iter_lines()`, printing with `end="", flush=True`.
+- `/docs` "Try it out" waits for the whole response — it won't show the streaming effect.
+
 ---
 
 ## Traps to avoid (several I actually hit)
@@ -496,3 +520,5 @@ def chat(request: ChatRequest) -> ChatResponse:              # plain def: blocki
 - Sync SDK client (or any blocking call) inside `async def` → freezes the whole server. Use plain `def`, or the async client + `await`.
 - Followed the plan blindly on `temperature` → current Claude models reject it (400). Always check current docs.
 - `.env` showing in `git status` = stop, don't commit. Secrets never go in Git, code, screenshots or chat.
+- Typed `curl` in PowerShell → it's a different command (Invoke-WebRequest). Use `curl.exe`.
+- Forgot `-N` with curl → output looks like one block even though the server streams.
