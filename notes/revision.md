@@ -39,6 +39,7 @@ One file to review everything learned so far. Updated after every task.
 | 09 | Secrets in **`.env`** (never Git, never chat), prompt in a **file** (versioned), blocking SDK client in a plain **`def`**, created **once**. Real token counts come from `message.usage`. |
 | 09 | **Check current docs** — APIs change: current Claude models reject `temperature` with a 400. |
 | 09 | **Streaming doesn't make the model faster — it shows the answer as it's written** (time to first token). SSE = `event:` + `data:` + blank line; a generator `yield`s each piece. |
+| 10 | **Lock the door before you spend money** (`Depends` + `X-API-Key` → 401, Claude never called), and **write a receipt for every call you pay for** (one JSON log line: tokens + latency). |
 
 ---
 
@@ -496,6 +497,46 @@ def chat_stream(request: ChatRequest) -> StreamingResponse:    # plain def: bloc
 
 ---
 
+## Day 10 — Project 1: LLM Chat Service
+
+### Task 1 — API-key auth + structured logging
+| Key | Who → whom | Purpose |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | your service → Claude | lets **you** call Claude (your money) |
+| `SERVICE_API_KEY` | clients → your service | lets **them** call **you** (your lock) |
+
+```python
+# app/core/security.py — the guard
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)   # also adds "Authorize 🔒" in /docs
+
+def require_api_key(api_key: str | None = Security(api_key_header)) -> None:
+    if api_key is None or not secrets.compare_digest(api_key, settings.service_api_key):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or missing API key")
+
+# app/api/chat.py — guard the WHOLE department with one line
+router = APIRouter(tags=["chat"], dependencies=[Depends(require_api_key)])
+```
+```python
+# app/core/log.py — the receipt printer
+def log_llm_call(logger: logging.Logger, **fields: object) -> None:
+    logger.info(json.dumps({"event": "llm_call", **fields}))
+
+log_llm_call(logger, endpoint="/chat", model=..., prompt_chars=..., input_tokens=..., output_tokens=..., latency_ms=...)
+```
+- **Dependency (`Depends`)** = function FastAPI runs **before** the endpoint; if it raises, the endpoint never runs. Spring: filter / interceptor.
+- `/health` lives in `main.py`, outside the chat router → stays open (load balancers need it without a key).
+- `auto_error=False` → missing header gives `None`, so **we** choose the 401 and message.
+- **`secrets.compare_digest`**, never `==`, for secrets: `==` stops at the first wrong character, so timing leaks the key.
+- `**fields` **collects** named arguments into a dict (reverse of `**data` unpacking).
+- `setup_logging()` once in `main.py`; `logger = logging.getLogger(__name__)` per file.
+- Streamed calls log at the **end** (usage only exists after the last piece).
+- 401 requests produce **no** `llm_call` line → proof they never reached Claude.
+- Strong key: `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
+- File named `log.py`, not `logging.py` (never shadow a library name).
+- Test in `/docs`: no key → 401, wrong → 401, Authorize with right key → 200, `/health` → 200 without key. curl: add `-H "X-API-Key: ..."`.
+
+---
+
 ## Traps to avoid (several I actually hit)
 
 - Type hint inside a function **call**: `f(prompt: str)` → syntax error.
@@ -522,3 +563,4 @@ def chat_stream(request: ChatRequest) -> StreamingResponse:    # plain def: bloc
 - `.env` showing in `git status` = stop, don't commit. Secrets never go in Git, code, screenshots or chat.
 - Typed `curl` in PowerShell → it's a different command (Invoke-WebRequest). Use `curl.exe`.
 - Forgot `-N` with curl → output looks like one block even though the server streams.
+- Comparing secrets with `==` → timing attack. Use `secrets.compare_digest`.

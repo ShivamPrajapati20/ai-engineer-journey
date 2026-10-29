@@ -1,16 +1,20 @@
-import time, json
+import time, json, logging
 from pathlib import Path
 
 from anthropic import Anthropic
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from app.core.config import settings
+from app.core.log import log_llm_call
+from app.core.security import require_api_key
+
 from app.schemas import ChatRequest, ChatResponse
 
 from collections.abc import Iterator
 from fastapi.responses import StreamingResponse
 
-router = APIRouter(tags=["chat"])
+router = APIRouter(tags=["chat"], dependencies=[Depends(require_api_key)])
+logger = logging.getLogger(__name__)
 
 client = Anthropic(api_key=settings.anthropic_api_key)
 SYSTEM_PROMPT = Path(settings.system_prompt_path).read_text(encoding="utf-8")
@@ -27,6 +31,17 @@ def chat(request: ChatRequest) -> ChatResponse:
     )
 
     answer = "".join(block.text for block in message.content if block.type == "text")
+    latency_ms=int((time.perf_counter() - start) * 1000)
+
+    log_llm_call(
+        logger,
+        endpoint="/chat",
+        model=message.model,
+        prompt_chars=len(request.prompt),
+        input_tokens=message.usage.input_tokens,
+        output_tokens=message.usage.output_tokens,
+        latency_ms=latency_ms
+    )
     
     return ChatResponse(
         answer=answer,
@@ -52,6 +67,18 @@ def chat_stream(request: ChatRequest) -> StreamingResponse:
             for text in stream.text_stream:                       # each small piece of text as it is generated
                 yield sse("token", {"text": text})
             final = stream.get_final_message()                    # full message, incl. real token usage
+
+        latency_ms = int((time.perf_counter() - start) * 1000)
+        log_llm_call(
+            logger,
+            endpoint="/chat/stream",
+            model=final.model,
+            prompt_chars=len(request.prompt),
+            input_tokens=final.usage.input_tokens,
+            output_tokens=final.usage.output_tokens,
+            latency_ms=latency_ms
+        )
+
 
         yield sse("done", {
             "model": final.model,

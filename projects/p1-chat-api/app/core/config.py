@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     version: str = "0.2.0"
     model_name: str = "claude-haiku-5-5"
     anthropic_api_key: str
+    service_api_key: str
     system_prompt_path: str = "prompts/system_v1.txt"
+    log_level: str = "INFO"
 
 settings = Settings()
