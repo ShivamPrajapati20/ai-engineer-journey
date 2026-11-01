@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env",env_file_encoding="utf-8")
 
     app_name: str = "LLM Chat Service"
-    version: str = "0.2.0"
+    version: str = "0.3.0"
     model_name: str = "claude-haiku-5-5"
     anthropic_api_key: str
     service_api_key: str

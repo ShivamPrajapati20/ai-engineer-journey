@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 client = Anthropic(api_key=settings.anthropic_api_key)
 SYSTEM_PROMPT = Path(settings.system_prompt_path).read_text(encoding="utf-8")
+logger.info(json.dumps({"event": "system_prompt_loaded", "path": settings.system_prompt_path, "chars": len(SYSTEM_PROMPT)}))
 
 @router.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest) -> ChatResponse:

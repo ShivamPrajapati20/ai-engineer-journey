@@ -1,10 +1,10 @@
 from fastapi import FastAPI
-
-from app.api.chat import router as chat_router
-from app.core.config import settings
 from app.core.log import setup_logging
 
 setup_logging()
+
+from app.api.chat import router as chat_router
+from app.core.config import settings
 
 app = FastAPI(title=settings.app_name, version=settings.version)
 
