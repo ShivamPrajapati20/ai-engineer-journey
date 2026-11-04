@@ -1,12 +1,14 @@
 import time, json, logging
 from pathlib import Path
 
+import anthropic
 from anthropic import Anthropic
 from fastapi import APIRouter, Depends
 
 from app.core.config import settings
 from app.core.log import log_llm_call
 from app.core.security import require_api_key
+from app.core.errors import provider_error_to_status
 
 from app.schemas import ChatRequest, ChatResponse
 
@@ -16,7 +18,12 @@ from fastapi.responses import StreamingResponse
 router = APIRouter(tags=["chat"], dependencies=[Depends(require_api_key)])
 logger = logging.getLogger(__name__)
 
-client = Anthropic(api_key=settings.anthropic_api_key)
+client = Anthropic(
+    api_key = settings.anthropic_api_key,
+    timeout = settings.request_timeout_seconds,
+    max_retries = settings.max_retries,
+    base_url = settings.provider_base_url
+)
 SYSTEM_PROMPT = Path(settings.system_prompt_path).read_text(encoding="utf-8")
 logger.info(json.dumps({"event": "system_prompt_loaded", "path": settings.system_prompt_path, "chars": len(SYSTEM_PROMPT)}))
 
@@ -59,15 +66,21 @@ def sse(event:str, data:dict[str,object]) -> str:
 def chat_stream(request: ChatRequest) -> StreamingResponse:
     def event_generator() -> Iterator[str]:                       # plain generator: FastAPI runs it in a threadpool
         start = time.perf_counter()
-        with client.messages.stream(
-            model=settings.model_name,
-            max_tokens=request.max_tokens,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": request.prompt}],
-        ) as stream:
-            for text in stream.text_stream:                       # each small piece of text as it is generated
-                yield sse("token", {"text": text})
-            final = stream.get_final_message()                    # full message, incl. real token usage
+        try:
+            with client.messages.stream(
+                model=settings.model_name,
+                max_tokens=request.max_tokens,
+                system=SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": request.prompt}],
+            ) as stream:
+                for text in stream.text_stream:                       # each small piece of text as it is generated
+                    yield sse("token", {"text": text})
+                final = stream.get_final_message()                    # full message, incl. real token usage
+        except anthropic.APIError as exc:
+            status_code, code, message = provider_error_to_status(exc)
+            logger.warning(json.dumps({"event":"provider_error","endpoint":"/chat/stream","code":code}))
+            yield sse("error",{"code":code,"message":message,"status":status_code})
+            return
 
         latency_ms = int((time.perf_counter() - start) * 1000)
         log_llm_call(
