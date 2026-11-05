@@ -42,6 +42,7 @@ One file to review everything learned so far. Updated after every task.
 | 10 | **Lock the door before you spend money** (`Depends` + `X-API-Key` → 401, Claude never called), and **write a receipt for every call you pay for** (one JSON log line: tokens + latency). |
 | 10 | A system prompt is a **job description where every line has a reason**: role, task, constraints, output format, and an **exact** refusal sentence. In a file, loaded once at startup, logged. |
 | 10 | **Make failures boring**: one shape `{"error": {"code", "message"}}` + the right status (422 fix request · 429 wait `Retry-After` · 502/504 provider failed · 500 our bug). Details to the log, never to the client. |
+| 10 | **Tests = a checklist that checks itself; mocking = a flight simulator for the provider.** Assert what you send *and* what comes back; `assert fake.calls == []` proves bad requests never cost money. |
 
 ---
 
@@ -593,6 +594,59 @@ def register_error_handlers(app: FastAPI) -> None:
 - **Environment variables override `.env`** (pydantic-settings). A machine-level `ANTHROPIC_BASE_URL` silently beat the `.env` value → used a neutral name `PROVIDER_BASE_URL`.
 - `getattr(exc, "status_code", None)` reads an attribute safely when not every error has it.
 
+### Task 4 — Tests with the model mocked (pytest + TestClient)
+| Word | Meaning |
+|---|---|
+| **pytest** | finds `test_*.py` / `test_*()`, runs them, reports pass/fail (JUnit) |
+| `assert x == y` | must be true or the test fails |
+| **TestClient** | calls the app **in memory** — no server, no network |
+| **fixture** | reusable setup, injected by naming it as a parameter (`@BeforeEach`-like) |
+| **`monkeypatch`** | temporarily replaces something, puts it back after the test (Mockito-like) |
+| `conftest.py` | auto-loaded by pytest; its fixtures are available to every test file |
+
+```python
+# tests/conftest.py — set env BEFORE importing the app (Settings() runs on import; env beats .env → real key never used)
+os.environ["ANTHROPIC_API_KEY"] = "test-anthropic-key"
+os.environ["SERVICE_API_KEY"] = "test-service-key"
+os.environ["PROVIDER_BASE_URL"] = "http://127.0.0.1:1"   # safety net: an accidental real call FAILS instead of costing money
+os.environ["MAX_RETRIES"] = "0"
+
+class FakeMessages:                       # same method as client.messages → code can't tell the difference
+    def __init__(self): self.calls = []; self.error = None
+    def create(self, **kwargs):
+        self.calls.append(kwargs)         # record what was sent
+        if self.error: raise self.error   # fail on command
+        return SimpleNamespace(content=[SimpleNamespace(type="text", text="...")], model=kwargs["model"],
+                               usage=SimpleNamespace(input_tokens=95, output_tokens=7))
+
+@pytest.fixture
+def fake_llm(monkeypatch):
+    fake = FakeMessages()
+    monkeypatch.setattr(chat_module, "client", SimpleNamespace(messages=fake))
+    return fake
+```
+```python
+# tests/test_chat.py — Arrange → Act → Assert
+def test_missing_api_key_returns_401(client, fake_llm):
+    response = client.post("/chat", json={"prompt": "hi"})
+    assert response.status_code == 401
+    assert fake_llm.calls == []                       # the expensive model was never called
+
+def test_rate_limit_returns_429_with_retry_after(client, auth, fake_llm):
+    fake_llm.error = anthropic.RateLimitError("slow down", body=None,
+        response=httpx.Response(429, request=FAKE_REQUEST, headers={"retry-after": "20"}))
+    response = client.post("/chat", json={"prompt": "hi"}, headers=auth)
+    assert response.status_code == 429 and response.headers["retry-after"] == "20"
+```
+- Real Claude in tests = 💸 cost, 🐢 slow, 🎲 unpredictable answers, 🔌 needs internet. Mock it.
+- 9 tests: happy path (also checks prompt stripped + no `temperature` sent), missing key, wrong key, oversized, bad temperature, timeout 504, 429 + Retry-After, 5xx 502 without stack trace, `/health` open. Run: `python -m pytest -v` from `p1-chat-api/` → 9 passed in ~0.2 s, $0, works offline.
+- `SimpleNamespace(a=1).a` → quick fake object with attributes.
+- Fake SDK errors need a fake HTTP response: `httpx.Response(429, request=httpx.Request("POST", url), headers=...)`.
+- `TestClient(app, raise_server_exceptions=False)` → see the 500 a user would see instead of the test crashing.
+- Always `monkeypatch`, never assign `chat_module.client = ...` directly (it would leak into other tests).
+- **Trust a test by watching it fail**: break `security.py` (`if False:`) → both 401 tests fail (`assert 200 == 401`); undo → green.
+- Proven safety net: with the fake removed, the happy path fails with 502 (dead address) instead of calling Claude.
+
 ---
 
 ## Traps to avoid (several I actually hit)
@@ -626,3 +680,5 @@ def register_error_handlers(app: FastAPI) -> None:
 - Used `anthropic.APIError` / `provider_error_to_status` in `chat.py` without importing them → the stream's error path would crash with `NameError` (only shows up when an error actually happens — that's why tests matter).
 - Checked `APIConnectionError` before `APITimeoutError` → timeouts reported as "unreachable". Check the child class first.
 - Env var with the same name as a `.env` setting silently wins.
+- Seeing tests fail after breaking code on purpose is the **point** (proves they work) — always undo the break and re-run until green.
+- `No module named 'app'` in pytest → run `python -m pytest` from `p1-chat-api/`; `No module named 'tests'` → add `tests/__init__.py`.
