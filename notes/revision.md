@@ -43,6 +43,7 @@ One file to review everything learned so far. Updated after every task.
 | 10 | A system prompt is a **job description where every line has a reason**: role, task, constraints, output format, and an **exact** refusal sentence. In a file, loaded once at startup, logged. |
 | 10 | **Make failures boring**: one shape `{"error": {"code", "message"}}` + the right status (422 fix request · 429 wait `Retry-After` · 502/504 provider failed · 500 our bug). Details to the log, never to the client. |
 | 10 | **Tests = a checklist that checks itself; mocking = a flight simulator for the provider.** Assert what you send *and* what comes back; `assert fake.calls == []` proves bad requests never cost money. |
+| 10 | **Docker = a shipping container for your app**: same box runs everywhere. Dependencies before code (cache), secrets **at runtime** (`--env-file`), never baked in (`.dockerignore`). |
 
 ---
 
@@ -647,6 +648,39 @@ def test_rate_limit_returns_429_with_retry_after(client, auth, fake_llm):
 - **Trust a test by watching it fail**: break `security.py` (`if False:`) → both 401 tests fail (`assert 200 == 401`); undo → green.
 - Proven safety net: with the fake removed, the happy path fails with 502 (dead address) instead of calling Claude.
 
+### Task 5 — Ship it (Docker + README)
+```dockerfile
+FROM python:3.12-slim                         # small official base image
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1   # no .pyc; logs appear immediately
+WORKDIR /app
+COPY requirements.txt .                       # 1) deps first → cached layer
+RUN pip install --no-cache-dir -r requirements.txt
+COPY app/ app/                                # 2) code last (changes often)
+COPY prompts/ prompts/
+RUN useradd --create-home appuser             # don't run as root
+USER appuser
+EXPOSE 8000
+HEALTHCHECK CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')" || exit 1
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]   # 0.0.0.0 = reachable from outside
+```
+| Word | Meaning |
+|---|---|
+| **image** | the packed box: OS + Python + deps + code (`docker build -t name .`) |
+| **container** | a running copy of the image (`docker run ...`) |
+| **layer** | each Dockerfile step; unchanged steps are **cached**, so order = least-changing first |
+| `-p 8000:8000` | your-machine port : container port |
+| `--env-file .env` | pass secrets **at runtime** |
+| `--rm` | delete the container when it stops |
+| `.dockerignore` | like `.gitignore` for the image: `.env`, `.venv`, caches, tests |
+
+- **Never bake secrets into an image** — anyone with the image can read them. `.env` is in `.dockerignore` and passed with `--env-file`.
+- `requirements.txt` = runtime (pinned versions → same install everywhere); `requirements-dev.txt` = `-r requirements.txt` + pytest/httpx.
+- `--host 0.0.0.0` inside Docker: `127.0.0.1` would only accept connections from inside the container itself.
+- `HEALTHCHECK` uses `/health` → Docker marks the container healthy/unhealthy.
+- **A README a stranger can follow:** what it does → run in 3 steps → try it (curl, incl. PowerShell) → endpoints → architecture diagram (Mermaid renders on GitHub) → errors table → config table → tests → structure.
+- Verify the README by following it **from a fresh clone**, exactly as written.
+- Run: `docker build -t llm-chat-service .` then `docker run --rm -p 8000:8000 --env-file .env llm-chat-service`.
+
 ---
 
 ## Traps to avoid (several I actually hit)
@@ -682,3 +716,5 @@ def test_rate_limit_returns_429_with_retry_after(client, auth, fake_llm):
 - Env var with the same name as a `.env` setting silently wins.
 - Seeing tests fail after breaking code on purpose is the **point** (proves they work) — always undo the break and re-run until green.
 - `No module named 'app'` in pytest → run `python -m pytest` from `p1-chat-api/`; `No module named 'tests'` → add `tests/__init__.py`.
+- Copying `.env` into a Docker image → secret leaks to anyone with the image. Use `.dockerignore` + `--env-file`.
+- Server inside Docker on `127.0.0.1` → unreachable from your browser. Use `--host 0.0.0.0`.

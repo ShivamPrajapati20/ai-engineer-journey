@@ -16,7 +16,7 @@ Full scope (user, question, corpus, quality bar): [`docs/capstone-brief.md`](doc
 
 | # | Project | Day | Folder |
 |---|---------|----:|--------|
-| 1 | LLM Chat Service | 10 | `projects/p1-chat-api` |
+| 1 | LLM Chat Service ✅ | 10 | [`projects/p1-chat-api`](projects/p1-chat-api) |
 | 2 | Chat With Your Documents | 44 | `projects/p2-doc-chat` |
 | 3 | Enterprise Knowledge Assistant | 46 | `projects/p3-knowledge-assistant` |
 | 4 | Research Agent | 57 | `projects/p4-research-agent` |
@@ -49,3 +49,4 @@ docs/architecture/   Mermaid diagrams: current-state, target-state, p5-graph, se
 - **Day 07:** Pandas EDA on Telco churn — cleaned `TotalCharges`, churn by segment, hypothesis → [`notes/d07-eda.md`](notes/d07-eda.md)
 - **Day 08:** Project 1 started — FastAPI `POST /chat` + `GET /health`, Pydantic request/response contract with validation (bad input → 422), router-based structure → [`projects/p1-chat-api`](projects/p1-chat-api)
 - **Day 09:** Async (`gather` ~10× faster), `async def` vs `def` in FastAPI, first real Claude call with `.env` secrets and a versioned system prompt, SSE streaming (`POST /chat/stream`) → [`notes/d09-async.md`](notes/d09-async.md) · [`labs/d09-async`](labs/d09-async)
+- **Day 10:** ✅ **Project 1 shipped — LLM Chat Service**: API-key auth (401), structured token/latency logs, defensible system prompt, boring failures (422/429/502/504 JSON errors), 9 pytest tests with the provider mocked, Dockerfile + README → [`projects/p1-chat-api`](projects/p1-chat-api)
