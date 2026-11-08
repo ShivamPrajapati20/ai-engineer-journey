@@ -44,6 +44,7 @@ One file to review everything learned so far. Updated after every task.
 | 10 | **Make failures boring**: one shape `{"error": {"code", "message"}}` + the right status (422 fix request · 429 wait `Retry-After` · 502/504 provider failed · 500 our bug). Details to the log, never to the client. |
 | 10 | **Tests = a checklist that checks itself; mocking = a flight simulator for the provider.** Assert what you send *and* what comes back; `assert fake.calls == []` proves bad requests never cost money. |
 | 10 | **Docker = a shipping container for your app**: same box runs everywhere. Dependencies before code (cache), secrets **at runtime** (`--env-file`), never baked in (`.dockerignore`). |
+| 11 | **Model = `y = w·x + b`. Training = adjust `w` and `b` until loss is as small as possible.** Weight = change per 1 unit of a feature; bias = the prediction when features are 0. |
 
 ---
 
@@ -680,6 +681,30 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]   # 0.0.0
 - **A README a stranger can follow:** what it does → run in 3 steps → try it (curl, incl. PowerShell) → endpoints → architecture diagram (Mermaid renders on GitHub) → errors table → config table → tests → structure.
 - Verify the README by following it **from a fresh clone**, exactly as written.
 - Run: `docker build -t llm-chat-service .` then `docker run --rm -p 8000:8000 --env-file .env llm-chat-service`.
+
+---
+
+## Day 11 — What ML is + supervised learning
+
+### Task 1 — Linear regression: model, loss, fit
+```
+y = w × x + b          taxi:  fare = 2 × miles + 3
+```
+| Term | Meaning | Taxi |
+|---|---|---|
+| **Feature (x)** | the input we give the model | miles |
+| **Label (y)** | the output we want to predict | fare |
+| **Weight (w)** | how much the prediction changes per 1 unit of the feature (can be negative) | $2 per mile |
+| **Bias (b)** | the prediction when all features are 0 (starting value) | $3 starting fee |
+| **Loss** | how wrong the predictions are (actual vs predicted, averaged over all examples) | predicted $20, actual $23 |
+
+- **Training / fitting**: random w, b → predict → measure loss → nudge w, b to lower loss → repeat until loss stops dropping.
+- The model doesn't "understand" anything; it finds the numbers that make loss smallest.
+- **MAE** = average |error| (all errors equal). **MSE** = average error² (big errors punished more). Errors 2 and 10 → MAE 6, MSE 52.
+- Check: pizza = $5 delivery + $10 per pizza → weight 10, bias 5.
+- Links: features = DataFrame columns, label = `Churn`, prediction = `x @ w + b` (Day 6 dot product).
+
+📄 Notes: [`d11-ml.md`](d11-ml.md)
 
 ---
 
