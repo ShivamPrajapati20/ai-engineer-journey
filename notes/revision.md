@@ -45,6 +45,7 @@ One file to review everything learned so far. Updated after every task.
 | 10 | **Tests = a checklist that checks itself; mocking = a flight simulator for the provider.** Assert what you send *and* what comes back; `assert fake.calls == []` proves bad requests never cost money. |
 | 10 | **Docker = a shipping container for your app**: same box runs everywhere. Dependencies before code (cache), secrets **at runtime** (`--env-file`), never baked in (`.dockerignore`). |
 | 11 | **Model = `y = w·x + b`. Training = adjust `w` and `b` until loss is as small as possible.** Weight = change per 1 unit of a feature; bias = the prediction when features are 0. |
+| 11 | **Coefficient = change per 1 unit, others held constant. Say the units; scale before comparing.** Always evaluate on a test set. |
 
 ---
 
@@ -706,6 +707,75 @@ y = w × x + b          taxi:  fare = 2 × miles + 3
 
 📄 Notes: [`d11-ml.md`](d11-ml.md)
 
+### Task 2 — First model in code (scikit-learn, California housing)
+```python
+data = fetch_california_housing(as_frame=True)
+X_train, X_test, y_train, y_test = train_test_split(data.data, data.target, test_size=0.2, random_state=42)
+model = LinearRegression().fit(X_train, y_train)      # training
+model.coef_        # weights (one per feature)
+model.intercept_   # bias
+model.predict(X_test)
+```
+- Label `MedHouseVal` is in **$100,000s**; `MedInc` is in **$10,000s** → always check units before reading a coefficient.
+- Results: MAE ≈ 0.53 (≈ $53k off on average), R² ≈ 0.58.
+- `MedInc` = 0.449 → +$10k income ≈ **+$44,900** predicted value, others held constant.
+- `AveBedrms` = 0.783 → looks biggest, but rooms are held constant, so it means "more of the same rooms are bedrooms". Coefficients can mislead.
+- **Raw coefficients can't be compared across units.** Scale first: `make_pipeline(StandardScaler(), LinearRegression())` → Latitude, Longitude, MedInc matter most.
+
+### 🎯 Interview points — Day 11 (ML basics + linear regression)
+| Question | Answer |
+|---|---|
+| Supervised learning? | Learning from examples that **have the answer** (label), to predict labels for new data. |
+| Feature vs label? | Feature = input. Label = what you predict. |
+| Weight vs bias? | Weight = change in prediction **per 1 unit** of a feature. Bias = prediction when all features are 0. |
+| Loss? | A number for how wrong the model is. Training makes it small. |
+| Training? | Adjusting weights and bias to **minimize loss**. |
+
+**Linear regression**
+- `y = w1·x1 + w2·x2 + ... + b`; predicts a **number**; assumes a roughly straight-line relationship.
+- Strength: simple, fast, easy to explain. Weakness: misses curved patterns, sensitive to outliers.
+
+**Loss**
+| Loss | Use when |
+|---|---|
+| MSE | big errors are really bad (squared) |
+| MAE | treat all errors equally; less sensitive to outliers |
+- "Why square the error?" → negatives and positives don't cancel out, and big errors are punished more.
+
+**Reading coefficients** (very common)
+- "+1 unit of this feature changes the prediction by w, **holding all others constant**." Always state the units.
+- Different units → **scale before comparing** (StandardScaler).
+- Correlated features (rooms and bedrooms) → strange or flipped signs = **multicollinearity**.
+- **Correlation ≠ causation.**
+
+**Evaluation**
+| Concept | One-liner |
+|---|---|
+| Train/test split | test on data the model never saw (an exam with new questions) |
+| Why split? | to catch **overfitting** (memorizing instead of learning) |
+| MAE | average error in the label's units, easy to explain to business people |
+| R² | 0 to 1, how much of the variation the model explains |
+| `random_state` | makes the split repeatable |
+
+**Regression vs classification**
+| | Regression | Classification |
+|---|---|---|
+| Predicts | a number | a category |
+| Example | house price | churn yes/no |
+| Model | linear regression | logistic regression |
+- Trick: "Is logistic regression a regression?" → **No**, it's for classification (outputs a probability, then picks a class).
+
+**Answer like an AI engineer**
+- Link to real work: "Predicting order lead time is regression; flagging risky quotes is classification."
+- Mention trade-offs (explainable vs misses non-linear patterns), units, and scaling.
+
+**Top 5 to memorize**
+1. Training = minimize loss by adjusting weights and bias.
+2. Coefficient = change per 1 unit, others held constant. Say the units.
+3. Scale before comparing coefficients.
+4. Always evaluate on a test set to catch overfitting.
+5. Regression = number, classification = category.
+
 ---
 
 ## Traps to avoid (several I actually hit)
@@ -743,3 +813,4 @@ y = w × x + b          taxi:  fare = 2 × miles + 3
 - `No module named 'app'` in pytest → run `python -m pytest` from `p1-chat-api/`; `No module named 'tests'` → add `tests/__init__.py`.
 - Copying `.env` into a Docker image → secret leaks to anyone with the image. Use `.dockerignore` + `--env-file`.
 - Server inside Docker on `127.0.0.1` → unreachable from your browser. Use `--host 0.0.0.0`.
+- Compared raw coefficients across different units (bedrooms vs $10k income) → misleading. Scale first.
