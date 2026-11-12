@@ -54,3 +54,32 @@ Example with errors 2 and 10: MAE = 6, MSE = 52.
 | Features | DataFrame columns (Day 7) |
 | Label | The `Churn` column (Day 7) |
 | Prediction | `x @ w + b`, a dot product (Day 6) |
+
+## Task 4: Classification vs regression
+
+| Type | Answer is | Question style |
+|---|---|---|
+| **Regression** | a number | How much? How many? How long? |
+| **Classification** | a category | Which one? Yes or no? |
+
+Quick test: can you average two answers and still get a valid answer? 5 and 7 days → 6 days (regression). "Accepted" and "rejected" → no average (classification).
+
+### Logistic regression
+
+1. Compute `w·x + b` (same as linear regression).
+2. Squeeze it into 0 to 1 with the **sigmoid** function → a **probability**.
+3. Above 0.5 → "yes", below → "no".
+
+Despite the name, logistic regression is used for **classification**.
+
+### 3 problems from my work (RVO Steel)
+
+| # | Problem | Type | Target |
+|---|---|---|---|
+| 1 | How long will this order take to finish? | Regression | `lead_time_days` |
+| 2 | Does the mill test report (MTR) match the spec? | Classification | `mtr_matches_spec` (yes/no) |
+| 3 | Will this order ship late? | Classification | `ships_late` (yes/no) |
+
+**Note on #2:** matching an MTR to a spec is usually a **rule check** (each value inside the spec range), so plain `if` checks beat ML: faster, 100% accurate, easy to explain. ML only helps when the rules are fuzzy or unknown, for example learning which MTRs reviewers rejected in the past even when the numbers passed.
+
+**Same data, different question:** "how many days?" is regression; "will it be late?" is classification.

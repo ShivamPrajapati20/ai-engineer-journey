@@ -46,6 +46,7 @@ One file to review everything learned so far. Updated after every task.
 | 10 | **Docker = a shipping container for your app**: same box runs everywhere. Dependencies before code (cache), secrets **at runtime** (`--env-file`), never baked in (`.dockerignore`). |
 | 11 | **Model = `y = w·x + b`. Training = adjust `w` and `b` until loss is as small as possible.** Weight = change per 1 unit of a feature; bias = the prediction when features are 0. |
 | 11 | **Coefficient = change per 1 unit, others held constant. Say the units; scale before comparing.** Always evaluate on a test set. |
+| 11 | **Number → regression, category → classification.** Logistic regression = linear + sigmoid → probability. Clear rules? Use rules, not ML. |
 
 ---
 
@@ -769,12 +770,39 @@ model.predict(X_test)
 - Link to real work: "Predicting order lead time is regression; flagging risky quotes is classification."
 - Mention trade-offs (explainable vs misses non-linear patterns), units, and scaling.
 
+### Task 4 — Classification vs regression (logistic regression)
+| Type | Answer | Question style | Example (RVO Steel) | Target |
+|---|---|---|---|---|
+| Regression | a number | how much / many / long? | order lead time | `lead_time_days` |
+| Classification | a category | which one? yes/no? | MTR matches spec? | `mtr_matches_spec` |
+| Classification | a category | yes/no? | will the order ship late? | `ships_late` |
+
+- Quick test: can you **average** two answers and still get a valid answer? Yes → regression. No → classification.
+- **Logistic regression** = `w·x + b` → **sigmoid** squeezes it into 0 to 1 → **probability** → above 0.5 = yes.
+  | `w·x + b` | sigmoid | decision |
+  |---|---|---|
+  | −3 | 0.05 | no |
+  | 0 | 0.50 | toss-up |
+  | +3 | 0.95 | yes |
+- Same data, different question: "how many days?" (regression) vs "will it be late?" (classification).
+- **Not every yes/no problem needs ML.** If clear rules exist (MTR value inside spec range), use rules: faster, exact, explainable. ML helps when rules are fuzzy or unknown.
+- Always **name the target column**, not just "number" or "yes/no".
+
+### Real-world use of linear regression
+- **Pattern:** past examples + want to guess a **number** for a new case → try linear regression first.
+- Steel example: features = tons, cuts, rush; label = `days_to_finish`. Learned: `days ≈ 0.15×tons + 0.16×cuts − 0.65×rush + 1.11` → new order (6 t, 30 cuts) ≈ 6.8 days → quote screen shows "Ready in 7 days".
+- In an app: `POST /predict-lead-time` → `model.predict()` (same FastAPI pattern as Project 1). Train once, save the model, predict per request.
+- Gradient descent is the engine inside `.fit()`; you choose features and label, `.fit()` finds the weights, `.predict()` uses them.
+- Not for: categories (classification), curved relationships (trees, later), very little data (expert rules).
+
 **Top 5 to memorize**
 1. Training = minimize loss by adjusting weights and bias.
 2. Coefficient = change per 1 unit, others held constant. Say the units.
 3. Scale before comparing coefficients.
 4. Always evaluate on a test set to catch overfitting.
 5. Regression = number, classification = category.
+6. Logistic regression is for **classification** (sigmoid → probability).
+7. Not every yes/no problem needs ML; clear rules beat a model.
 
 ---
 
@@ -814,3 +842,4 @@ model.predict(X_test)
 - Copying `.env` into a Docker image → secret leaks to anyone with the image. Use `.dockerignore` + `--env-file`.
 - Server inside Docker on `127.0.0.1` → unreachable from your browser. Use `--host 0.0.0.0`.
 - Compared raw coefficients across different units (bedrooms vs $10k income) → misleading. Scale first.
+- Labelled the target as "number" or "yes/no" instead of naming the column (`lead_time_days`, `ships_late`).
