@@ -47,6 +47,7 @@ One file to review everything learned so far. Updated after every task.
 | 11 | **Model = `y = w·x + b`. Training = adjust `w` and `b` until loss is as small as possible.** Weight = change per 1 unit of a feature; bias = the prediction when features are 0. |
 | 11 | **Coefficient = change per 1 unit, others held constant. Say the units; scale before comparing.** Always evaluate on a test set. |
 | 11 | **Number → regression, category → classification.** Logistic regression = linear + sigmoid → probability. Clear rules? Use rules, not ML. |
+| 12 | **Accuracy lies when a class is rare.** Precision = don't cry wolf, recall = don't miss any. Choose by which mistake costs more; the threshold is a business decision. |
 
 ---
 
@@ -806,6 +807,43 @@ model.predict(X_test)
 
 ---
 
+## Day 12 — Classification & the metrics that matter
+
+### Task 1 — Thresholds and the confusion matrix
+|  | Model YES | Model NO |
+|---|---|---|
+| **Really YES** | **TP** correct catch | **FN** missed it |
+| **Really NO** | **FP** false alarm | **TN** correct pass |
+- Name trick: 2nd word = what the model said (Positive/Negative); 1st word = was it right (True/False).
+- **Threshold** cuts a probability into yes/no. Lower → more catches + more false alarms. Higher → the opposite. 0.5 is just a default.
+- The two mistakes **cost different amounts** → the threshold is a **business decision**.
+- Fraud (YES = block): TP saves ~$500; **FN** = refund $500 to $2,000 + lost trust (worse); FP = declined real customer, support call, churn; TN = $0. → lower the threshold, soften FP with "Was this you?" texts.
+- Late shipment alert: FN = angry customer / lost account; FP = wasted overtime → favour catching late orders.
+
+### Task 2 — Accuracy, precision, recall
+| Metric | Question | Formula |
+|---|---|---|
+| Accuracy | how many of all predictions were right? | (TP+TN)/all |
+| **Precision** | when it says yes, how often right? (don't cry wolf) | TP/(TP+FP) |
+| **Recall** | of all real yes, how many caught? (don't miss any) | TP/(TP+FN) |
+| F1 | balance of both | 2PR/(P+R) |
+- Fraud example, 1,000 payments, 10 fraud: TP 8, FN 2, FP 4, TN 986 → accuracy 99.4%, precision 67%, recall 80%.
+- **Accuracy trap:** always predict "no" on 1% fraud → 99% accuracy, **0% recall**. Rare class → ignore accuracy.
+- Expensive misses (fraud, cancer, outages) → **recall**. Expensive false alarms (spam filter, auto-blocking) → **precision**. Both → **F1**.
+- Support-ticket router: optimize **recall on the urgent/outage class** (a missed outage loses customers; a false urgent flag costs minutes). Other teams: macro F1.
+
+### 🎯 Interview points — Day 12 (metrics, part 1)
+| Question | Answer |
+|---|---|
+| Confusion matrix? | 2x2 of TP, FP, FN, TN: where every prediction lands. |
+| FP vs FN? | FP = false alarm (said yes, was no). FN = miss (said no, was yes). |
+| Why not accuracy? | With a rare class, predicting the majority class every time scores high accuracy and catches nothing. |
+| Precision vs recall? | Precision = of my yes, how many right. Recall = of real yes, how many I caught. |
+| How to choose? | By cost of mistakes: costly misses → recall; costly false alarms → precision; both → F1. |
+| What's a threshold? | Cut-off that turns a probability into a class; moving it trades precision for recall. Chosen by the business, not fixed at 0.5. |
+
+---
+
 ## Traps to avoid (several I actually hit)
 
 - Type hint inside a function **call**: `f(prompt: str)` → syntax error.
@@ -843,3 +881,4 @@ model.predict(X_test)
 - Server inside Docker on `127.0.0.1` → unreachable from your browser. Use `--host 0.0.0.0`.
 - Compared raw coefficients across different units (bedrooms vs $10k income) → misleading. Scale first.
 - Labelled the target as "number" or "yes/no" instead of naming the column (`lead_time_days`, `ships_late`).
+- "Rare class → recall" is too simple: rare class → **don't trust accuracy**; then recall if misses cost more, precision if false alarms cost more.

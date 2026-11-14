@@ -51,3 +51,4 @@ docs/architecture/   Mermaid diagrams: current-state, target-state, p5-graph, se
 - **Day 09:** Async (`gather` ~10× faster), `async def` vs `def` in FastAPI, first real Claude call with `.env` secrets and a versioned system prompt, SSE streaming (`POST /chat/stream`) → [`notes/d09-async.md`](notes/d09-async.md) · [`labs/d09-async`](labs/d09-async)
 - **Day 10:** ✅ **Project 1 shipped — LLM Chat Service**: API-key auth (401), structured token/latency logs, defensible system prompt, boring failures (422/429/502/504 JSON errors), 9 pytest tests with the provider mocked, Dockerfile + README → [`projects/p1-chat-api`](projects/p1-chat-api)
 - **Day 11:** ML fundamentals — linear regression: feature, label, weight, bias, loss → [`notes/d11-ml.md`](notes/d11-ml.md)
+- **Day 12:** Classification metrics — confusion matrix with business costs, accuracy trap, precision vs recall → [`notes/d12-metrics.md`](notes/d12-metrics.md)
