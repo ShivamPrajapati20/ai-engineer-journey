@@ -62,3 +62,57 @@ Code: [`labs/d12-classification/roc.py`](../labs/d12-classification/roc.py) · P
 - Confusion matrix at 0.315: TN 71, FP 1, FN 1, TP 41 → only 2 mistakes out of 114.
 - **Answer:** threshold 0.315 → precision 0.976, recall 0.976. Lowering the threshold from 0.5 caught 2 more cancers.
 - Precision did not drop here because this dataset is very easy (AUC 0.996). On real, messy data, raising recall usually costs precision, and the business decides how much it can accept.
+
+## Task 4: Reading a classification report
+
+```python
+print(classification_report(y_test, predictions, target_names=["benign", "malignant"]))
+```
+
+### Report at the default threshold 0.5
+
+```
+              precision    recall  f1-score   support
+
+      benign       0.96      0.99      0.97        72
+   malignant       0.97      0.93      0.95        42
+
+    accuracy                           0.96       114
+   macro avg       0.97      0.96      0.96       114
+weighted avg       0.97      0.96      0.96       114
+```
+
+At the chosen threshold 0.315 every number goes up to 0.98 to 0.99 (only 2 mistakes).
+
+### Each column (malignant row, in my words)
+
+| Column | Meaning |
+|---|---|
+| **precision 0.97** | Of the patients the model called cancer, 97% really had cancer. |
+| **recall 0.93** | Of the 42 real cancer patients, the model caught 93% (39 caught, 3 missed). |
+| **f1-score 0.95** | One number that balances precision and recall. |
+| **support 42** | There were 42 real cancer patients in the test set. |
+
+Precision and recall measure different things, so they are not compared with each other.
+
+### Bottom 3 lines
+
+| Line | Meaning |
+|---|---|
+| **accuracy** | Correct predictions out of all 114. |
+| **macro avg** | Simple average of the classes: every class counts the same. |
+| **weighted avg** | Average weighted by support: bigger classes count more. |
+
+### Macro vs weighted (my words)
+
+On imbalanced data we use **macro**, because a small class can hide inside the weighted average. If we want the overall result group-wise (weighted by how many cases each class has), **weighted** is better.
+
+Example (990 OK, 10 fraud, model catches 2 frauds): weighted F1 = 0.99 (looks great), macro F1 = 0.66 (shows fraud detection is failing).
+
+| Use | When |
+|---|---|
+| **Macro** | Every class matters equally, especially a small important class (fraud, cancer, urgent tickets) |
+| **Weighted** | You want the overall result, and bigger classes matter more |
+| **Micro** | Every single prediction counts the same; in normal multi-class problems it equals accuracy |
+
+If macro is much lower than weighted, some small class is failing: check its row.

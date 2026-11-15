@@ -48,6 +48,7 @@ One file to review everything learned so far. Updated after every task.
 | 11 | **Coefficient = change per 1 unit, others held constant. Say the units; scale before comparing.** Always evaluate on a test set. |
 | 11 | **Number → regression, category → classification.** Logistic regression = linear + sigmoid → probability. Clear rules? Use rules, not ML. |
 | 12 | **Accuracy lies when a class is rare.** Precision = don't cry wolf, recall = don't miss any. Choose by which mistake costs more; the threshold is a business decision. |
+| 12 | **ROC/AUC** = quality across all thresholds; pick the threshold from the business rule and report the precision it costs. **Imbalanced → macro avg**, not weighted. |
 
 ---
 
@@ -847,7 +848,29 @@ chosen = thresholds[idx]
 - Pick the threshold from the **business rule** (recall ≥ 0.95), then **report the precision you pay**. Easy data hid the cost here; normally more recall = less precision.
 - `confusion_matrix(...).ravel()` → `[TN, FP, FN, TP]`.
 
-### 🎯 Interview points — Day 12 (metrics, part 1)
+### Task 4 — Reading a classification report
+```
+              precision    recall  f1-score   support
+      benign       0.96      0.99      0.97        72
+   malignant       0.97      0.93      0.95        42
+    accuracy                           0.96       114
+   macro avg       0.97      0.96      0.96       114
+weighted avg       0.97      0.96      0.96       114
+```
+| Column | Meaning (malignant row) |
+|---|---|
+| precision 0.97 | of those called cancer, 97% really were (don't say "accurate") |
+| recall 0.93 | of 42 real cancers, 93% caught (39 caught, 3 missed) |
+| f1-score 0.95 | balance of precision and recall |
+| support 42 | real cases of this class in the test set |
+- One row **per class**; precision and recall measure different things, don't compare them with each other.
+- **macro avg** = simple average of classes (each class equal). **weighted avg** = weighted by support (big classes count more). **micro avg** = every prediction equal (= accuracy in normal multi-class).
+- School example: section A 990 students avg 99, section B 10 students avg 20 → weighted ≈ 98 (hides B), macro ≈ 60 (shows B).
+- Fraud 990/10, 2 caught: weighted F1 0.99 (lies), macro F1 0.66 (truth).
+- **Imbalanced + small class important → macro.** Overall result where big classes matter more → weighted. Macro ≪ weighted → a small class is failing.
+- At threshold 0.315 the whole report rises to 0.98 to 0.99.
+
+### 🎯 Interview points — Day 12 (classification metrics)
 | Question | Answer |
 |---|---|
 | Confusion matrix? | 2x2 of TP, FP, FN, TN: where every prediction lands. |
@@ -859,6 +882,8 @@ chosen = thresholds[idx]
 | ROC curve? | Recall vs false-alarm rate across every threshold. Closer to the top-left = better. |
 | AUC? | Area under ROC: one score for all thresholds. 0.5 = coin flip, 1.0 = perfect. |
 | How do you pick a threshold? | From the business rule (e.g. recall ≥ 0.95), then report the precision it costs. |
+| Macro vs weighted avg? | Macro = every class equal (use on imbalanced data so a small class can't hide). Weighted = by class size (overall view). Big gap = a small class is failing. |
+| What's support? | Number of real cases of that class in the test set. |
 
 ---
 
@@ -900,3 +925,5 @@ chosen = thresholds[idx]
 - Compared raw coefficients across different units (bedrooms vs $10k income) → misleading. Scale first.
 - Labelled the target as "number" or "yes/no" instead of naming the column (`lead_time_days`, `ships_late`).
 - "Rare class → recall" is too simple: rare class → **don't trust accuracy**; then recall if misses cost more, precision if false alarms cost more.
+- Called precision "accuracy" → they're different metrics. Precision = of the model's yes answers, how many were right.
+- Trusted weighted avg on imbalanced data → it hides a failing small class, like accuracy does. Check macro.

@@ -55,3 +55,6 @@ plt.title("ROC curve - breast cancer")
 plt.legend()
 plt.savefig("labs/d12-classification/roc.png", dpi=120)
 print("Saved roc.png")
+
+print("\nClassification report for chosen threshold:")
+print(classification_report(y_test, picked, target_names=["benign", "malignant"]))
