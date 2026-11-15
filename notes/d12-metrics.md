@@ -42,3 +42,23 @@ If something is important and urgent, optimize **recall** (on the urgent/outage 
 | Worse mistake? | Missing an urgent ticket |
 | Which error is that? | FN |
 | Metric that reduces FN? | Recall |
+
+## Task 3: ROC, AUC, and threshold selection
+
+Code: [`labs/d12-classification/roc.py`](../labs/d12-classification/roc.py) · Plot: [`roc.png`](../labs/d12-classification/roc.png)
+
+- **ROC curve** = recall (true positive rate) vs false alarm rate, one point per threshold. Top-left corner = perfect, diagonal = coin flip.
+- **AUC** = area under the ROC curve, one score across all thresholds (1.0 perfect, 0.5 useless). It is the chance the model scores a random positive higher than a random negative.
+- Business rule for cancer screening: catch at least 95% of cancers (recall ≥ 0.95), because a missed cancer (FN) is far worse than an extra test (FP).
+
+### Results (breast cancer dataset, positive = malignant, 114 test patients: 42 cancer, 72 healthy)
+
+| Threshold | Precision | Recall | Cancers missed (FN) |
+|---|---|---|---|
+| 0.50 (default) | 0.975 | 0.929 (below 0.95) | 3 |
+| **0.315 (chosen)** | **0.976** | **0.976** | **1** |
+
+- AUC = **0.996**.
+- Confusion matrix at 0.315: TN 71, FP 1, FN 1, TP 41 → only 2 mistakes out of 114.
+- **Answer:** threshold 0.315 → precision 0.976, recall 0.976. Lowering the threshold from 0.5 caught 2 more cancers.
+- Precision did not drop here because this dataset is very easy (AUC 0.996). On real, messy data, raising recall usually costs precision, and the business decides how much it can accept.

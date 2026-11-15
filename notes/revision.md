@@ -832,6 +832,21 @@ model.predict(X_test)
 - Expensive misses (fraud, cancer, outages) → **recall**. Expensive false alarms (spam filter, auto-blocking) → **precision**. Both → **F1**.
 - Support-ticket router: optimize **recall on the urgent/outage class** (a missed outage loses customers; a false urgent flag costs minutes). Other teams: macro F1.
 
+### Task 3 — ROC, AUC, threshold selection
+```python
+probs = model.predict_proba(X_test)[:, 1]           # probability of class 1, not yes/no
+fpr, tpr, thresholds = roc_curve(y_test, probs)     # try every threshold
+auc = roc_auc_score(y_test, probs)
+idx = np.where(tpr >= 0.95)[0][0]                   # first threshold with recall >= 0.95
+chosen = thresholds[idx]
+```
+- **ROC curve** = recall (y) vs false alarm rate (x), one point per threshold. Top-left = perfect; diagonal = coin flip.
+- **AUC** = one number for the whole curve (1.0 perfect, 0.5 coin flip) = chance a random positive scores higher than a random negative.
+- Smoke alarm: sensitive (low threshold) never misses a fire but beeps at toast; less sensitive misses small fires.
+- Breast cancer (positive = malignant via `(data.target == 0)`; `stratify=y` keeps class % equal in train/test): AUC 0.996; threshold 0.5 → P 0.975, R 0.929 (3 missed); **threshold 0.315 → P 0.976, R 0.976 (1 missed)**. Matrix `[TN FP FN TP] = [71 1 1 41]`.
+- Pick the threshold from the **business rule** (recall ≥ 0.95), then **report the precision you pay**. Easy data hid the cost here; normally more recall = less precision.
+- `confusion_matrix(...).ravel()` → `[TN, FP, FN, TP]`.
+
 ### 🎯 Interview points — Day 12 (metrics, part 1)
 | Question | Answer |
 |---|---|
@@ -841,6 +856,9 @@ model.predict(X_test)
 | Precision vs recall? | Precision = of my yes, how many right. Recall = of real yes, how many I caught. |
 | How to choose? | By cost of mistakes: costly misses → recall; costly false alarms → precision; both → F1. |
 | What's a threshold? | Cut-off that turns a probability into a class; moving it trades precision for recall. Chosen by the business, not fixed at 0.5. |
+| ROC curve? | Recall vs false-alarm rate across every threshold. Closer to the top-left = better. |
+| AUC? | Area under ROC: one score for all thresholds. 0.5 = coin flip, 1.0 = perfect. |
+| How do you pick a threshold? | From the business rule (e.g. recall ≥ 0.95), then report the precision it costs. |
 
 ---
 
