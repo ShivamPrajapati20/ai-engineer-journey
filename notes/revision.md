@@ -49,6 +49,7 @@ One file to review everything learned so far. Updated after every task.
 | 11 | **Number → regression, category → classification.** Logistic regression = linear + sigmoid → probability. Clear rules? Use rules, not ML. |
 | 12 | **Accuracy lies when a class is rare.** Precision = don't cry wolf, recall = don't miss any. Choose by which mistake costs more; the threshold is a business decision. |
 | 12 | **ROC/AUC** = quality across all thresholds; pick the threshold from the business rule and report the precision it costs. **Imbalanced → macro avg**, not weighted. |
+| 13 | **Train = learn, validation = tune (as often as needed), test = report once at the end.** Never use the test set to make decisions. New model version → fresh test set. |
 
 ---
 
@@ -887,6 +888,33 @@ weighted avg       0.97      0.96      0.96       114
 
 ---
 
+## Day 13 — Training, validation, testing & overfitting
+
+### Task 1 — Why a validation set exists
+| Split | School | Used for |
+|---|---|---|
+| Training | textbook + practice | the model learns (finds weights) |
+| Validation | mock test | tuning: threshold, settings, model choice, as often as needed |
+| Test | board exam | **once, at the end**, to report the final score |
+- **Overfitting** = memorized training data, fails on new data (big train vs validation gap). **Underfitting** = learned too little (both scores low). **Generalization** = good on new data (the goal).
+- **Golden rule:** never use the test set to make decisions. Tuning after looking at the test score = the board exam paper leaked; the score is no longer trustworthy.
+- Bad test score → report it honestly; get fresh test data or redo with a new split. Don't re-tune on the same test set.
+- Stop tuning on validation when: target met, improvement tiny, or time/budget out. Too much tuning memorizes validation too → use cross-validation.
+- One test set = one use per model version. New version → new fresh test set. Live model → **monitoring** on new data.
+- Time-based data: train on older, test on newer (RVO: Jan–Sep train/val, Oct test, Nov monitoring).
+- Day 12's threshold 0.315 was picked on the test set = leakage; should be picked on validation.
+
+### 🎯 Interview points — Day 13
+| Question | Answer |
+|---|---|
+| Why 3 splits? | Train to learn, validation to tune, test to get an honest final score on unseen data. |
+| What's overfitting? How do you spot it? | Memorizing training data; training score much higher than validation score. |
+| What must the test set never be used for? | Any decision: tuning, threshold, model choice. Only the final report. |
+| Test score is bad, now what? | Report it; don't tune on it. Get fresh data or re-split. |
+| Time-series split? | Train on the past, test on the future; never shuffle future into training. |
+
+---
+
 ## Traps to avoid (several I actually hit)
 
 - Type hint inside a function **call**: `f(prompt: str)` → syntax error.
@@ -927,3 +955,5 @@ weighted avg       0.97      0.96      0.96       114
 - "Rare class → recall" is too simple: rare class → **don't trust accuracy**; then recall if misses cost more, precision if false alarms cost more.
 - Called precision "accuracy" → they're different metrics. Precision = of the model's yes answers, how many were right.
 - Trusted weighted avg on imbalanced data → it hides a failing small class, like accuracy does. Check macro.
+- "Test score bad → go back and tune → test again" = test-set leakage. Tune only on validation; the test set is used once.
+- "Tune as per the test set" → no, tune as per the **validation** set.

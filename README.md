@@ -52,3 +52,4 @@ docs/architecture/   Mermaid diagrams: current-state, target-state, p5-graph, se
 - **Day 10:** ✅ **Project 1 shipped — LLM Chat Service**: API-key auth (401), structured token/latency logs, defensible system prompt, boring failures (422/429/502/504 JSON errors), 9 pytest tests with the provider mocked, Dockerfile + README → [`projects/p1-chat-api`](projects/p1-chat-api)
 - **Day 11:** ML fundamentals — linear regression: feature, label, weight, bias, loss → [`notes/d11-ml.md`](notes/d11-ml.md)
 - **Day 12:** Classification metrics — confusion matrix with business costs, accuracy trap, precision vs recall, ROC/AUC (0.996) with threshold 0.315 for recall ≥ 0.95, classification report (macro vs weighted) → [`notes/d12-metrics.md`](notes/d12-metrics.md) · [`labs/d12-classification`](labs/d12-classification)
+- **Day 13:** Train / validation / test splits, overfitting, test-set golden rule → [`notes/d13-splits.md`](notes/d13-splits.md)
