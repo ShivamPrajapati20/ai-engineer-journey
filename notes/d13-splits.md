@@ -54,3 +54,40 @@ Tuning on validation too many times can make the model memorize the validation s
 ### Day 12 note
 
 On Day 12 the threshold 0.315 was chosen by looking at the test set. Strictly, that is test-set leakage: the threshold should be chosen on validation data, and the test set only used to report.
+
+## Task 2: Cross-validation
+
+Code: [`labs/d13-validation/cv.py`](../labs/d13-validation/cv.py)
+
+- One validation split can be lucky or unlucky. **5-fold cross-validation** cuts the training data into 5 parts; each part is the validation set once, the other 4 train the model. You get 5 scores.
+- The test set is never touched (only `X_train` goes into `cross_val_score`).
+
+| Term | Meaning (my words) |
+|---|---|
+| **Mean** | Average of the 5 scores: how good the model typically is. |
+| **Std** | How much the 5 scores differ from each other: how stable/reliable the score is. Small std = consistent. |
+
+### Results (Day 12 model, 5 folds)
+
+| Metric | Folds | Mean ± std |
+|---|---|---|
+| Accuracy | 0.967, 0.989, 0.956, 0.978, 0.967 | **0.971 ± 0.011** |
+| Recall | 0.912, 1.000, 0.882, 0.971, 0.971 | **0.947 ± 0.043** |
+
+### What I learned
+
+- Day 12 showed recall 0.976 on one test split. Cross-validation shows the more honest picture: **0.947 ± 0.043**. Day 12's split was a bit lucky.
+- Splitting did not create the variation. One split simply cannot show it; cross-validation reveals variation that was always there.
+- Recall has a bigger std because each fold has only ~34 cancer patients, so one missed cancer moves recall by ~3%.
+
+### What a large std means
+
+**Mean tells how good the model is. Std tells how much we can trust that number.** A large std does not automatically mean a bad model; it means the score depends a lot on which data it sees. Common reasons:
+
+| Reason | Meaning |
+|---|---|
+| Little data / small class | Each fold has few examples, so one mistake moves the score a lot |
+| Unstable model | Small changes in data change the model a lot (a sign of overfitting) |
+| Rare or unusual cases in one fold | One fold is harder than the others |
+
+Fix: get more data, use a simpler model, and don't trust a single-split number.

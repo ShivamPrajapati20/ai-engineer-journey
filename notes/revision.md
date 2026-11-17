@@ -904,6 +904,18 @@ weighted avg       0.97      0.96      0.96       114
 - Time-based data: train on older, test on newer (RVO: Jan–Sep train/val, Oct test, Nov monitoring).
 - Day 12's threshold 0.315 was picked on the test set = leakage; should be picked on validation.
 
+### Task 2 — Cross-validation (`cross_val_score`)
+```python
+scores = cross_val_score(model, X_train, y_train, cv=5, scoring="recall")   # test set stays locked
+print(f"{scores.mean():.3f} +/- {scores.std():.3f}")
+```
+- 5 folds: each fold is validation once, the other 4 train → 5 scores. Like 5 mock tests instead of 1.
+- **Mean** = how good. **Std** = how reliable/stable (how much the scores jump).
+- Day 12 model: accuracy 0.971 ± 0.011; recall **0.947 ± 0.043** (Day 12's single split said 0.976 → it was a lucky split).
+- Cross-validation doesn't *create* variation; it **reveals** it. One split can't show it.
+- **Large std ≠ automatically a bad model.** It means the score depends on the split: little data / small class (≈34 cancers per fold → 1 miss = −3% recall), an unstable model (overfitting sign), or rare cases in one fold.
+- Fix: more data, simpler model, never trust one split.
+
 ### 🎯 Interview points — Day 13
 | Question | Answer |
 |---|---|
@@ -912,6 +924,8 @@ weighted avg       0.97      0.96      0.96       114
 | What must the test set never be used for? | Any decision: tuning, threshold, model choice. Only the final report. |
 | Test score is bad, now what? | Report it; don't tune on it. Get fresh data or re-split. |
 | Time-series split? | Train on the past, test on the future; never shuffle future into training. |
+| What's cross-validation? | Split training data into k folds; each fold validates once; report mean ± std. More reliable than one split, and the test set stays untouched. |
+| What does a large std across folds mean? | The score depends heavily on the split: small data/class or an unstable model. Mean = how good, std = how much to trust it. |
 
 ---
 
@@ -957,3 +971,5 @@ weighted avg       0.97      0.96      0.96       114
 - Trusted weighted avg on imbalanced data → it hides a failing small class, like accuracy does. Check macro.
 - "Test score bad → go back and tune → test again" = test-set leakage. Tune only on validation; the test set is used once.
 - "Tune as per the test set" → no, tune as per the **validation** set.
+- "Big std = bad model" → not exactly. Big std = unreliable score (often small data/class). Mean shows quality, std shows trust.
+- "Splitting increased the std" → no, one split just can't show variation; CV reveals it.
