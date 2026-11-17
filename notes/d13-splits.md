@@ -91,3 +91,42 @@ Code: [`labs/d13-validation/cv.py`](../labs/d13-validation/cv.py)
 | Rare or unusual cases in one fold | One fold is harder than the others |
 
 Fix: get more data, use a simpler model, and don't trust a single-split number.
+
+## Task 3: Prevent leakage with a Pipeline
+
+Code: [`labs/d13-validation/leakage.py`](../labs/d13-validation/leakage.py)
+
+### Leakage (my words)
+
+When we validate a model, we must never show it the test/validation data. Leakage is getting a "peek" at the answers before the test. The score then looks good, but the model is not really that good on new data. Leakage makes a model **look** better, not **be** better.
+
+### Where it happens with scaling
+
+| Way | What happens |
+|---|---|
+| **Naive** (leaky) | `StandardScaler` is fit on all training rows first, then cross-validation runs. The scaler has already seen each fold's validation rows (their average and spread). |
+| **Pipeline** (correct) | `Pipeline([("scaler", StandardScaler()), ("clf", LogisticRegression())])`. In every fold the scaler is fit only on that fold's training part; the validation part stays unseen. |
+
+**Pipeline (my words):** a box that keeps the scaler and the model together and keeps the validation data secret, so nothing leaks.
+
+### Results (recall, 5 folds)
+
+| Version | Recall |
+|---|---|
+| Naive | 0.9471 ± 0.0432 |
+| Pipeline | 0.9471 ± 0.0432 |
+
+They are the same here: scaling only learns the average and spread of each column, and with 455 rows these barely change when one fold is included or not. The leak is real but too small to move the score.
+
+### When the leak is big
+
+Demo: 5,000 random columns and random labels (nothing to learn, true score = 50%), with a "pick the best 20 columns" step:
+
+| Version | Score | Truth |
+|---|---|---|
+| Naive (columns picked on all data) | 78.5% | Fake: column picking saw the validation answers |
+| Pipeline (columns picked inside each fold) | 49.5% | Honest: random data = coin flip |
+
+### Rule
+
+Every step that **learns from data** (scaling, feature selection, filling missing values, encoding) goes **inside the Pipeline**, so it learns only from each fold's training part.

@@ -50,6 +50,7 @@ One file to review everything learned so far. Updated after every task.
 | 12 | **Accuracy lies when a class is rare.** Precision = don't cry wolf, recall = don't miss any. Choose by which mistake costs more; the threshold is a business decision. |
 | 12 | **ROC/AUC** = quality across all thresholds; pick the threshold from the business rule and report the precision it costs. **Imbalanced → macro avg**, not weighted. |
 | 13 | **Train = learn, validation = tune (as often as needed), test = report once at the end.** Never use the test set to make decisions. New model version → fresh test set. |
+| 13 | **Leakage makes a model look better, not be better.** Every step that learns from data goes inside a `Pipeline`. CV: mean = how good, std = how much to trust it. |
 
 ---
 
@@ -916,6 +917,23 @@ print(f"{scores.mean():.3f} +/- {scores.std():.3f}")
 - **Large std ≠ automatically a bad model.** It means the score depends on the split: little data / small class (≈34 cancers per fold → 1 miss = −3% recall), an unstable model (overfitting sign), or rare cases in one fold.
 - Fix: more data, simpler model, never trust one split.
 
+### Task 3 — Prevent leakage with a Pipeline
+```python
+# ❌ naive: scaler sees every row, incl. each fold's validation part
+X_scaled = StandardScaler().fit_transform(X_train)
+cross_val_score(LogisticRegression(), X_scaled, y_train, cv=5)
+
+# ✅ pipeline: scaler is re-fit inside each fold, on its training part only
+pipe = Pipeline([("scaler", StandardScaler()), ("clf", LogisticRegression(max_iter=1000))])
+cross_val_score(pipe, X_train, y_train, cv=5)
+```
+- **Leakage** = a peek at the answers (answer sheet left on the table). The score looks good, but the model is not that good on new data. Leakage makes a model **look** better, not **be** better.
+- Scaler = helper that evens out numbers using the average and spread. Naive = it measured the test kids too.
+- **Pipeline** = a box that keeps preprocessing + model together and keeps validation data secret in every fold.
+- Breast cancer: naive 0.9471 ± 0.0432 = pipeline 0.9471 ± 0.0432 → scaling leak too small to show with 455 rows.
+- Big leak demo (5,000 random columns, random labels, "pick best 20"): naive **78.5%** (fake) vs pipeline **49.5%** (truth = coin flip).
+- **Rule:** any step that learns from data (scaling, feature selection, imputing, encoding) goes **inside the Pipeline**.
+
 ### 🎯 Interview points — Day 13
 | Question | Answer |
 |---|---|
@@ -926,6 +944,8 @@ print(f"{scores.mean():.3f} +/- {scores.std():.3f}")
 | Time-series split? | Train on the past, test on the future; never shuffle future into training. |
 | What's cross-validation? | Split training data into k folds; each fold validates once; report mean ± std. More reliable than one split, and the test set stays untouched. |
 | What does a large std across folds mean? | The score depends heavily on the split: small data/class or an unstable model. Mean = how good, std = how much to trust it. |
+| What is data leakage? | Information from validation/test data reaching training. Scores look better than real performance. |
+| How does a Pipeline prevent it? | Every learning step (scaler, selector, imputer) is re-fit inside each CV fold on training rows only. |
 
 ---
 
@@ -973,3 +993,4 @@ print(f"{scores.mean():.3f} +/- {scores.std():.3f}")
 - "Tune as per the test set" → no, tune as per the **validation** set.
 - "Big std = bad model" → not exactly. Big std = unreliable score (often small data/class). Mean shows quality, std shows trust.
 - "Splitting increased the std" → no, one split just can't show variation; CV reveals it.
+- "Leak → model works better" → no: the **score** looks better, the model isn't. Scaling the whole dataset before CV is a (small) leak; feature selection before CV can be a huge one.
