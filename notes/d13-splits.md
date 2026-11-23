@@ -130,3 +130,86 @@ Demo: 5,000 random columns and random labels (nothing to learn, true score = 50%
 ### Rule
 
 Every step that **learns from data** (scaling, feature selection, filling missing values, encoding) goes **inside the Pipeline**, so it learns only from each fold's training part.
+
+## Task 4: Multiple features, vectorization, feature scaling, learning rate
+
+### Multiple features
+
+```
+price = w1 × size + w2 × beds + w3 × age + b
+```
+
+Each weight = how much the price changes when that one feature goes up by 1 and everything else stays the same.
+
+### Vectorization
+
+```python
+pred = X @ w + b      # all rows at once, no Python loop
+```
+
+NumPy runs this in C over all rows together, so it is 10 to 100 times faster than a loop.
+
+### Gradient descent in one line
+
+Standing on a hill in fog: feel the slope, take a small step downhill, repeat. Height = cost, position = weights, step size = learning rate `alpha`.
+
+### Feature scaling
+
+| Feature | Range |
+|---|---|
+| size | 500 to 3000 |
+| beds | 1 to 5 |
+
+- There is **one** step size for all weights.
+- A tiny change in `w_size` moves the prediction a lot (it is multiplied by up to 3000). `w_beds` needs a big change to matter.
+- The cost surface becomes a **long, narrow valley**. A step big enough for `beds` overshoots on `size` and blows up. A step small enough for `size` makes `beds` crawl.
+- **Z-score scaling:** `z = (x - mean) / std` puts every feature around -2 to +2. The valley becomes a **round bowl**, and the slope points straight to the bottom, so bigger steps are safe.
+
+### Experiment ([`labs/d13-validation/scaling_gd.py`](../labs/d13-validation/scaling_gd.py))
+
+| Data | alpha | Result |
+|---|---|---|
+| Raw | 0.0000001 | Not converged after 100,000 steps |
+| Raw | 0.000001 | Blew up at step 310 |
+| Raw | 0.00001 | Blew up at step 96 |
+| Scaled | 0.01 | Converged in 1058 steps |
+| Scaled | 0.1 | Converged in 114 steps |
+| Scaled | **0.5** | **Converged in 20 steps** |
+| Scaled | 2.5 | Blew up |
+
+No alpha worked on raw data. On scaled data, 20 steps were enough.
+
+### Learning rate
+
+| alpha | Effect |
+|---|---|
+| Too small | Right direction, very slow |
+| Good | Reaches the bottom fast |
+| Too big | Overshoots, cost goes up, then explodes |
+
+Try a ladder about 3x apart: `0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1`. Pick the largest one where the cost still goes down every step.
+
+### Checking convergence
+
+Plot cost vs iterations (learning curve).
+
+| Curve | Meaning |
+|---|---|
+| Goes down every step, then flattens | Converged |
+| Goes **up** at any point | alpha too big (or a bug) |
+| Falls very slowly | Increase alpha |
+
+Automatic check: stop when the cost drops by less than a tiny number (for example `0.000001`) in one step.
+
+### Answers
+
+1. **Why does scaling speed up gradient descent?** All features get the same range, so the cost surface turns from a long narrow valley into a round bowl. One learning rate now fits every weight, the slope points straight to the minimum, and we can take bigger steps without blowing up.
+2. **Cost goes up during training?** The learning rate is too big (overshooting), or there is a bug. Lower alpha (about 3x) and check the code.
+3. **Why fit the scaler only on train data?** The mean and std must not include validation or test rows, or their information leaks into training (Task 3). Fit on train, then only `transform` validation and test. A `Pipeline` does this for you.
+
+### When scaling matters
+
+| Needs scaling | Does not need it |
+|---|---|
+| Gradient descent models (logistic regression, SGD, neural networks) | Tree models (decision tree, random forest, XGBoost) |
+| Distance models (KNN, SVM) | They only check "is this value above a threshold?" |

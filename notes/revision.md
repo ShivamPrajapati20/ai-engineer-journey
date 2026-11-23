@@ -50,6 +50,7 @@ One file to review everything learned so far. Updated after every task.
 | 12 | **Accuracy lies when a class is rare.** Precision = don't cry wolf, recall = don't miss any. Choose by which mistake costs more; the threshold is a business decision. |
 | 12 | **ROC/AUC** = quality across all thresholds; pick the threshold from the business rule and report the precision it costs. **Imbalanced → macro avg**, not weighted. |
 | 13 | **Train = learn, validation = tune (as often as needed), test = report once at the end.** Never use the test set to make decisions. New model version → fresh test set. |
+| 13 | **Scale features before gradient descent:** narrow valley → round bowl. Cost going up = alpha too big. Fit the scaler on train only. |
 | 13 | **Leakage makes a model look better, not be better.** Every step that learns from data goes inside a `Pipeline`. CV: mean = how good, std = how much to trust it. |
 
 ---
@@ -934,6 +935,19 @@ cross_val_score(pipe, X_train, y_train, cv=5)
 - Big leak demo (5,000 random columns, random labels, "pick best 20"): naive **78.5%** (fake) vs pipeline **49.5%** (truth = coin flip).
 - **Rule:** any step that learns from data (scaling, feature selection, imputing, encoding) goes **inside the Pipeline**.
 
+### Task 4: Multiple features, vectorization, scaling, learning rate
+```python
+pred = X @ w + b                              # vectorized: all rows, no loop
+X_scaled = (X - X.mean(axis=0)) / X.std(axis=0)   # z-score
+```
+- Multiple features: `price = w1·size + w2·beds + b`. Each weight = change in price per 1 unit of that feature, others fixed.
+- Gradient descent = walk downhill in fog. Cost = height, weights = position, **alpha = step size**.
+- **Why scaling helps:** size (500–3000) vs beds (1–5) + one shared alpha → cost is a **long narrow valley**: big alpha blows up on size, small alpha crawls on beds. Scaling → **round bowl** → straight to the bottom, bigger steps safe.
+- My experiment: raw data never worked (100k steps not converged, or blew up). Scaled: **20 steps** at alpha 0.5; alpha 2.5 blew up.
+- Learning rate: too small = slow, too big = cost goes up then explodes. Try 0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1.
+- Convergence: cost vs iterations should fall every step then flatten. **Cost going up = alpha too big (or a bug).** Auto-stop when one step improves cost by < 1e-6.
+- Fit the scaler on **train only** (else leakage). Trees don't need scaling; GD and distance models (KNN, SVM) do.
+
 ### 🎯 Interview points — Day 13
 | Question | Answer |
 |---|---|
@@ -946,6 +960,10 @@ cross_val_score(pipe, X_train, y_train, cv=5)
 | What does a large std across folds mean? | The score depends heavily on the split: small data/class or an unstable model. Mean = how good, std = how much to trust it. |
 | What is data leakage? | Information from validation/test data reaching training. Scores look better than real performance. |
 | How does a Pipeline prevent it? | Every learning step (scaler, selector, imputer) is re-fit inside each CV fold on training rows only. |
+| Why scale features? | Different ranges make the cost a narrow valley; one learning rate can't fit all weights. Scaling makes it a round bowl, so gradient descent converges much faster. |
+| Training cost is going up. Why? | Learning rate too big (overshooting) or a bug. Lower alpha. |
+| Which models need scaling? | Gradient-descent and distance-based ones (logistic regression, neural nets, KNN, SVM). Not trees. |
+| What is vectorization? | `X @ w + b` on all rows at once instead of a Python loop; runs in C, much faster. |
 
 ---
 
@@ -994,3 +1012,5 @@ cross_val_score(pipe, X_train, y_train, cv=5)
 - "Big std = bad model" → not exactly. Big std = unreliable score (often small data/class). Mean shows quality, std shows trust.
 - "Splitting increased the std" → no, one split just can't show variation; CV reveals it.
 - "Leak → model works better" → no: the **score** looks better, the model isn't. Scaling the whole dataset before CV is a (small) leak; feature selection before CV can be a huge one.
+- "Scaling changes what the model learns" → no, it changes how **fast and safely** gradient descent gets there. Raw data + one alpha either crawls or blows up.
+- Scaler fit on the whole dataset → leakage. Fit on train, only `transform` validation and test.
