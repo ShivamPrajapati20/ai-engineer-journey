@@ -58,3 +58,30 @@ Code: [`labs/d14-regression/train.py`](../labs/d14-regression/train.py)
 | `X = df...drop(..., inplace=True)` → `X` was `None` | `inplace=True` returns nothing. Drop `inplace` and save the result. |
 | `train_test_split` not imported | `from sklearn.model_selection import train_test_split` |
 | Named the 20% part `X_test` | It is used for decisions, so it is **validation** (`X_val`) |
+
+## Task 3: Feature engineering
+
+**Feature engineering** = building new columns from existing ones, to give the model a better clue.
+
+### Pizza example
+
+Pizza price depends on **area** = `length × width`. A linear model can only do `w1 × length + w2 × width + b`. It can add, but it cannot multiply. Give it an `Area` column and it gets the right clue directly.
+
+### Results (validation RMSE)
+
+Code: [`labs/d14-regression/features.py`](../labs/d14-regression/features.py)
+
+| Feature | Formula | Before | After | Keep? |
+|---|---|---|---|---|
+| `HouseAge` | `YrSold - YearBuilt` | $36,840 | $36,840 | ❌ Dropped |
+| `TotalSF` | `TotalBsmtSF + 1stFlrSF + 2ndFlrSF` | $36,840 | $36,840 | ❌ Dropped |
+| `QualxSF` | `OverallQual × GrLivArea` | $36,840 | **$34,331** | ✅ Kept (-$2,509) |
+
+### Why
+
+- `HouseAge` and `TotalSF` are just **+ and −** of columns the model already has. A linear model can already build them by itself, so they add nothing new. The number did not move at all.
+- `QualxSF` is a **multiplication**. A linear model cannot build it. It captures "big house **and** high quality = very expensive", which neither column says alone.
+
+**Rule:** for a linear model, give it clues it cannot make by itself: products, ratios, logs. Sums and differences of existing columns don't help.
+
+(Tree models are different: they can find interactions by themselves, but simple sums can still help them.)

@@ -52,7 +52,7 @@ One file to review everything learned so far. Updated after every task.
 | 13 | **Train = learn, validation = tune (as often as needed), test = report once at the end.** Never use the test set to make decisions. New model version → fresh test set. |
 | 13 | **Scale features before gradient descent:** narrow valley → round bowl. Cost going up = alpha too big. Fit the scaler on train only. |
 | 13 | **Leakage makes a model look better, not be better.** Every step that learns from data goes inside a `Pipeline`. CV: mean = how good, std = how much to trust it. |
-| 14 | **Report RMSE on validation, with train next to it.** Small gap + big error = underfitting → better features. Seed the split. |
+| 14 | **Report RMSE on validation, with train next to it.** Small gap + big error = underfitting → better features. Seed the split. Linear models need × / ratio / log features, not + or −. |
 
 ---
 
@@ -991,6 +991,16 @@ root_mean_squared_error(y_val, model.predict(X_val))
 | Train much lower | Overfitting |
 | Both high, close | Underfitting |
 
+### Task 3: Feature engineering
+```python
+X3 = X.assign(QualxSF=df["OverallQual"] * df["GrLivArea"])   # assign = copy + new column
+```
+- Feature engineering = new columns from old ones = a better clue for the model.
+- Pizza: price depends on `length × width`. A linear model can add, **not multiply**, so give it `Area`.
+- Results: `HouseAge` (a − b) and `TotalSF` (a + b + c) → **no change** ($36,840). `QualxSF` (a × b) → **$34,331** (kept).
+- **Linear models: + and − of existing columns add nothing** (it can build them itself). Products, ratios and logs can help.
+- Re-score after each feature; keep only what lowers validation RMSE.
+
 ### 🎯 Interview points: Day 14
 | Question | Answer |
 |---|---|
@@ -999,6 +1009,8 @@ root_mean_squared_error(y_val, model.predict(X_val))
 | Why RMSE over MSE? | Same unit as the target, so it's readable ("off by $37k"). |
 | Train RMSE low, validation high? | Overfitting. Both high and close? Underfitting. |
 | Why seed the split? | Reproducible results; you can compare experiments fairly. |
+| What is feature engineering? | Creating new input columns from existing ones (age, ratios, products) so the model gets a clearer signal. |
+| Why didn't `TotalSF = a + b + c` help linear regression? | It's a linear combination of existing columns; the model can already learn it. Interactions (a × b) or non-linear transforms can help. |
 
 ---
 
@@ -1051,3 +1063,4 @@ root_mean_squared_error(y_val, model.predict(X_val))
 - Scaler fit on the whole dataset → leakage. Fit on train, only `transform` validation and test.
 - `df.drop(..., inplace=True)` returns `None` → `X` was `None`. Drop `inplace`, save the result.
 - Called the 20% split `X_test` while using it for decisions → it's validation (`X_val`).
+- Added `a + b` or `a - b` features to a linear model and expected a gain → it can already build those. Try `a × b`, ratios, logs.
