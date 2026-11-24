@@ -52,7 +52,7 @@ One file to review everything learned so far. Updated after every task.
 | 13 | **Train = learn, validation = tune (as often as needed), test = report once at the end.** Never use the test set to make decisions. New model version → fresh test set. |
 | 13 | **Scale features before gradient descent:** narrow valley → round bowl. Cost going up = alpha too big. Fit the scaler on train only. |
 | 13 | **Leakage makes a model look better, not be better.** Every step that learns from data goes inside a `Pipeline`. CV: mean = how good, std = how much to trust it. |
-| 14 | **Report RMSE on validation, with train next to it.** Small gap + big error = underfitting → better features. Seed the split. Linear models need × / ratio / log features, not + or −. |
+| 14 | **Report RMSE on validation, with train next to it.** Small gap + big error = underfitting → better features. Seed the split. Linear models need × / ratio / log features, not + or −. One-hot text with `handle_unknown="ignore"`. |
 
 ---
 
@@ -1001,6 +1001,21 @@ X3 = X.assign(QualxSF=df["OverallQual"] * df["GrLivArea"])   # assign = copy + n
 - **Linear models: + and − of existing columns add nothing** (it can build them itself). Products, ratios and logs can help.
 - Re-score after each feature; keep only what lowers validation RMSE.
 
+### Task 4: Categorical features (one-hot)
+```python
+prep = ColumnTransformer([
+    ("num", SimpleImputer(strategy="median"), num_cols),
+    ("cat", OneHotEncoder(handle_unknown="ignore"), ["Neighborhood"]),
+])
+model = Pipeline([("prep", prep), ("model", LinearRegression())])
+```
+- Models need numbers. Label numbers (1, 2, 3) invent a fake order ❌. **One-hot** = one 0/1 column per category ✅.
+- `ColumnTransformer` = traffic police: different steps for different columns, inside the Pipeline.
+- Result: validation **$34,331 → $31,862** (25 neighborhoods → 25 columns).
+- Unseen category (`"Mars"`): default encoder **crashes** (`ValueError`, API 500). `handle_unknown="ignore"` → all zeros, no location bonus, still predicts ($165,800).
+- `ignore` fails silently → log unknown categories in production and retrain when they grow.
+- **Day 14 total:** $36,840 → $31,862 with the same model. Win was in the features.
+
 ### 🎯 Interview points: Day 14
 | Question | Answer |
 |---|---|
@@ -1011,6 +1026,10 @@ X3 = X.assign(QualxSF=df["OverallQual"] * df["GrLivArea"])   # assign = copy + n
 | Why seed the split? | Reproducible results; you can compare experiments fairly. |
 | What is feature engineering? | Creating new input columns from existing ones (age, ratios, products) so the model gets a clearer signal. |
 | Why didn't `TotalSF = a + b + c` help linear regression? | It's a linear combination of existing columns; the model can already learn it. Interactions (a × b) or non-linear transforms can help. |
+| One-hot vs label encoding? | Label encoding (1, 2, 3) invents an order that doesn't exist. One-hot gives each category its own 0/1 column. |
+| What happens with an unseen category in production? | Default `OneHotEncoder` raises an error. `handle_unknown="ignore"` encodes it as all zeros so the service keeps running; log it and retrain later. |
+| What does `ColumnTransformer` do? | Applies different preprocessing to different columns (impute numbers, one-hot text) inside one Pipeline. |
+| Downside of one-hot? | High-cardinality columns (thousands of values) create thousands of sparse columns. Group rare values or use other encodings. |
 
 ---
 
@@ -1064,3 +1083,5 @@ X3 = X.assign(QualxSF=df["OverallQual"] * df["GrLivArea"])   # assign = copy + n
 - `df.drop(..., inplace=True)` returns `None` → `X` was `None`. Drop `inplace`, save the result.
 - Called the 20% split `X_test` while using it for decisions → it's validation (`X_val`).
 - Added `a + b` or `a - b` features to a linear model and expected a gain → it can already build those. Try `a × b`, ratios, logs.
+- Encoding categories as 1, 2, 3 → fake order. Use one-hot.
+- `OneHotEncoder()` without `handle_unknown="ignore"` → a new category in production crashes the API.

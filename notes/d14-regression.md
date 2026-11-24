@@ -85,3 +85,56 @@ Code: [`labs/d14-regression/features.py`](../labs/d14-regression/features.py)
 **Rule:** for a linear model, give it clues it cannot make by itself: products, ratios, logs. Sums and differences of existing columns don't help.
 
 (Tree models are different: they can find interactions by themselves, but simple sums can still help them.)
+
+## Task 4: Categorical features without blowing up
+
+### Why text needs encoding
+
+A model only does math on numbers. `"OldTown" × 0.5` means nothing, so text columns like `Neighborhood` were skipped until now.
+
+| Way | Example | Problem |
+|---|---|---|
+| ❌ Label numbers | OldTown = 1, Edwards = 2, NoRidge = 3 | Model thinks NoRidge = 3 × OldTown. Names have no order. |
+| ✅ One-hot | One 0/1 column per neighborhood | Each neighborhood gets its own bonus or penalty |
+
+| House | is_OldTown | is_Edwards | is_NoRidge |
+|---|---|---|---|
+| A (OldTown) | 1 | 0 | 0 |
+| B (NoRidge) | 0 | 0 | 1 |
+
+### ColumnTransformer
+
+Different columns need different steps. `ColumnTransformer` is the traffic police: number columns go to `SimpleImputer`, `Neighborhood` goes to `OneHotEncoder`. It sits inside the Pipeline, so it learns only from training rows.
+
+```python
+prep = ColumnTransformer([
+    ("num", SimpleImputer(strategy="median"), num_cols),
+    ("cat", OneHotEncoder(handle_unknown="ignore"), ["Neighborhood"]),
+])
+model = Pipeline([("prep", prep), ("model", LinearRegression())])
+```
+
+Code: [`labs/d14-regression/categorical.py`](../labs/d14-regression/categorical.py)
+
+### Results
+
+| | Train RMSE | Validation RMSE |
+|---|---|---|
+| Baseline (Task 1) | $33,918 | $36,840 |
+| + `QualxSF` (Task 3) | | $34,331 |
+| + `Neighborhood` one-hot (Task 4) | $30,104 | **$31,862** |
+
+25 neighborhoods → 25 new 0/1 columns. Validation error dropped **$4,978 (13.5%)** from the baseline, with the same simple model. Gap is still small ($1,758), so no overfitting.
+
+### Unseen category in production
+
+| Setting | New neighborhood `"Mars"` |
+|---|---|
+| `OneHotEncoder()` | ❌ Crash: `ValueError: Found unknown categories ['Mars']` → API returns 500 |
+| `OneHotEncoder(handle_unknown="ignore")` | ✅ All neighborhood columns = 0. No location bonus, the rest of the features still predict: **$165,800** |
+
+**Catch:** `ignore` avoids the crash, but the guess for that house is worse (no location info) and it fails **silently**. In production, log and count unknown categories, and retrain when new ones show up often.
+
+## Day 14 summary
+
+Same `LinearRegression`, better inputs: **$36,840 → $31,862**. The win was in the features, not the model.
