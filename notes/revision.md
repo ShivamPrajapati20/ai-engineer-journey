@@ -991,7 +991,7 @@ root_mean_squared_error(y_val, model.predict(X_val))
 | Train much lower | Overfitting |
 | Both high, close | Underfitting |
 
-### 🎯 Interview points — Day 14
+### 🎯 Interview points: Day 14
 | Question | Answer |
 |---|---|
 | Parameter vs hyperparameter? | Parameters are learned during training (weights). Hyperparameters are chosen before training (learning rate, batch size, epochs, tree depth). |
