@@ -53,6 +53,7 @@ One file to review everything learned so far. Updated after every task.
 | 13 | **Scale features before gradient descent:** narrow valley → round bowl. Cost going up = alpha too big. Fit the scaler on train only. |
 | 13 | **Leakage makes a model look better, not be better.** Every step that learns from data goes inside a `Pipeline`. CV: mean = how good, std = how much to trust it. |
 | 14 | **Report RMSE on validation, with train next to it.** Small gap + big error = underfitting → better features. Seed the split. Linear models need × / ratio / log features, not + or −. One-hot text with `handle_unknown="ignore"`. |
+| 15 | **KMeans: scale first. Choose k with elbow + silhouette + business sense,** never lowest inertia. |
 
 ---
 
@@ -1033,6 +1034,31 @@ model = Pipeline([("prep", prep), ("model", LinearRegression())])
 
 ---
 
+## Day 15: Unsupervised learning
+
+### Task 1: KMeans and choosing k
+```python
+X = StandardScaler().fit_transform(df[["tenure", "MonthlyCharges", "TotalCharges"]])
+km = KMeans(n_clusters=k, n_init=10, random_state=42).fit(X)
+km.inertia_, silhouette_score(X, km.labels_)
+```
+- **Unsupervised** = no answer column; the model finds groups by itself.
+- **KMeans** = ice-cream stalls: kids go to the nearest stall, stalls move to the middle of their kids, repeat.
+- Scale first: KMeans uses distance (big-number columns would dominate).
+- **Inertia** always drops as k grows → look for the **elbow** (where the drop slows). **Silhouette** (-1 to 1): higher = cleaner groups.
+- Churn data: elbow at **k = 4**; silhouette best at k = 2 (0.480) but k = 4 is close (0.472). Picked **k = 4**: both plots agree well, and 4 segments are more useful than "old vs new".
+
+### 🎯 Interview points: Day 15
+| Question | Answer |
+|---|---|
+| Supervised vs unsupervised? | Supervised has labels to predict. Unsupervised has no labels; it finds structure (groups, patterns). |
+| How does KMeans work? | Pick k centers, assign each point to the nearest center, move centers to the mean of their points, repeat until stable. |
+| How do you choose k? | Elbow on inertia + silhouette score, then check the clusters make business sense. |
+| Why not just pick the k with lowest inertia? | Inertia always falls as k grows (k = n gives 0). Look for the elbow. |
+| Why scale before KMeans? | It uses distance; unscaled, the largest-range column decides the clusters. |
+
+---
+
 ## Traps to avoid (several I actually hit)
 
 - Type hint inside a function **call**: `f(prompt: str)` → syntax error.
@@ -1085,3 +1111,4 @@ model = Pipeline([("prep", prep), ("model", LinearRegression())])
 - Added `a + b` or `a - b` features to a linear model and expected a gain → it can already build those. Try `a × b`, ratios, logs.
 - Encoding categories as 1, 2, 3 → fake order. Use one-hot.
 - `OneHotEncoder()` without `handle_unknown="ignore"` → a new category in production crashes the API.
+- Picking k with the lowest inertia → always the biggest k. Look for the elbow.
